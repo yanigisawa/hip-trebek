@@ -1,0 +1,9 @@
+[Core]
+Name = Trebek
+Module = trebek
+
+[Documentation]
+Description = Play Jeopardy using a Hipchat bot.
+
+[Python]
+Version=3

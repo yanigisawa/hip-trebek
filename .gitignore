@@ -1,0 +1,4 @@
+.errbot-data/
+__pycache__/
+.redis/
+*.swp
