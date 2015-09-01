@@ -20,10 +20,6 @@ def fake_fetch_random_clue():
 class TestMyPlugin(object):
     extra_plugin_dir = '.'
     
-    def test_trebek_getting_started(self, testbot):
-        push_message('!jeopardy')
-        assert 'Jeopardy would be here' in pop_message()
-
     def test_when_value_not_included_default_to_200(self, testbot):
         plugin = plugin_manager.get_plugin_obj_by_name('Trebek')
         plugin.fetch_random_clue = fake_fetch_random_clue
@@ -35,7 +31,7 @@ class TestMyPlugin(object):
     def test_round_in_progress_cannot_start_new_round(self, testbot):
         plugin = plugin_manager.get_plugin_obj_by_name('Trebek')
         plugin.start_jeopardy()
-        push_message('!jeopardy')
+        push_message('!trebek jeopardy')
             
         assert "Round in progress, cannot start a new Jeopardy round." in pop_message()
 
@@ -70,6 +66,8 @@ class TestMyPlugin(object):
         assert plugin.is_correct_answer(test_clue.answer, "what is elt's Make a Deal")
         assert not plugin.is_correct_answer(test_clue.answer, "Let's a Deal")
         assert not plugin.is_correct_answer(test_clue.answer, "Let's make ")
+        assert plugin.is_correct_answer("a ukulele", "a ukelele")
+        assert plugin.is_correct_answer("Scrabble", "Scrablle")
 
 
         

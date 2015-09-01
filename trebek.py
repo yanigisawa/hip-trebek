@@ -58,7 +58,7 @@ class Trebek(BotPlugin):
             if self.can_start_new_round():
                 message = "The answer was: {0}\n".format(self['activeClue'].answer)
             else:
-                return "Round in progress, cannot start a new Jeopardy Round"
+                return "Round in progress, cannot start a new Jeopardy round."
 
 
         clue = self.start_jeopardy()
@@ -154,7 +154,7 @@ class Trebek(BotPlugin):
 
         # print("Expected: {0} - Actual: {1} - Ratio: {2}".format(expected, actual, seq.ratio()))
         # TODO: Make this ratio confgurable
-        return seq.ratio() >= 0.9
+        return seq.ratio() >= 0.85
 
     def clear_storage(self):
         for key in list(self.keys()):
