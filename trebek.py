@@ -81,6 +81,7 @@ class Trebek(BotPlugin):
                 response = "That is correct, however time is up."
             else:
                 response = "Time is up! The correct answer was: `{0}`".format(clue.answer)
+            self.mark_question_as_answered()
         elif self.response_is_a_question(args) and correct_answer:
             # TODO: Update score calculation here - Positive amount
             response = "That is correct!"
@@ -165,7 +166,8 @@ class Trebek(BotPlugin):
     # when someone invokes trebekbot and there's no active round.
     # 
     def trebek_me(self):
-        quotes = quotes = [ "Welcome back to HipChat Jeopardy. Before we begin this Jeopardy round, I'd like to ask our contestants once again to please refrain from using ethnic slurs.",
+        quotes = [ 
+            "Welcome back to HipChat Jeopardy. Before we begin this Jeopardy round, I'd like to ask our contestants once again to please refrain from using ethnic slurs.",
             "Okay, Turd Ferguson.",
             "I hate my job.",
             "Let's just get this over with.",
@@ -176,7 +178,7 @@ class Trebek(BotPlugin):
             "That is _awful_.",
             "Okay, for the sake of tradition, let's take a look at the answers.",
             "Beautiful. Just beautiful.",
-            "Good for you. Well, as always, three perfectly good charities have been deprived of money, here on HipChat Jeopardy. I'm trebekBot, and all of you should be ashamed of yourselves! Good night!",
+            "Good for you. Well, as always, three perfectly good charities have been deprived of money, here on HipChat Jeopardy. I'm trebekbot, and all of you should be ashamed of yourselves! Good night!",
             "And welcome back to HipChat Jeopardy. Because of what just happened before during the commercial, I'd like to apologize to all blind people and children.",
             "Thank you, thank you. Moving on.",
             "I really thought that was going to work.",
