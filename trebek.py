@@ -271,6 +271,8 @@ class Trebek(object):
 def index():
     parameters = {}
     # parameters['from'] = 'Alice'
+    j = request.json
+    parameters['room_id'] = j['item']['room']['id']
     parameters['message'] = 'Message Received'
     parameters['color'] = 'random'
     return json.dumps(parameters)
