@@ -1,5 +1,3 @@
-from errbot import BotPlugin, botcmd
-from errbot.builtins.webserver import webhook
 import redis
 import bs4
 import re
@@ -7,13 +5,24 @@ import difflib
 import time
 import requests
 
+from bottle import route, run, template, request
 
-# trebekbot jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
-# trebekbot what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!
-# trebekbot score: shows your current score.
-# trebekbot leaderboard: shows the current top scores.
-# trebekbot loserboard: shows the current bottom scores.
-# trebekbot help: shows this help information.
+# trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
+# trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!
+# trebek score: shows your current score.
+# trebek leaderboard: shows the current top scores.
+# trebek loserboard: shows the current bottom scores.
+# trebek help: shows this help information.
+
+
+class HipChatUser(object):
+    def __init__(self, id = None, name = None, created = None,
+            email = None, group = None, is_deleted = None, is_group_admin = None,
+            is_guest = None, last_active = None, links = None, mention_name = None,
+            photo_url = None, presence = None, timezone = None, title = None, 
+            version = None, xmpp_jid = None):
+        self.id = id
+        self.name = name
 
 class Category(object):
     def __init__(self, id, title, created_at, updated_at, clues_count):
@@ -40,19 +49,13 @@ class Question(object):
         self.invalid_count = invalid_count
         self.category = Category(**category)
 
-class Trebek(BotPlugin):
-    """An Err plugin skeleton"""
-    min_err_version = '2.2.1' # Optional, but recommended
-    max_err_version = '2.2.1' # Optional, but recommended
+class Trebek(object):
 
     def __init__(self):
         # TODO - Make this variable configurable
         self.seconds_to_expire = 30
-        super(Trebek, self).__init__()
 
-    @botcmd
     def trebek_jeopardy(self, message, args):
-
         message = ""
         if 'activeClue' in self:
             if self.can_start_new_round():
@@ -66,7 +69,6 @@ class Trebek(BotPlugin):
             
         return message
 
-    @botcmd
     def trebek(self, message, args):
         """ Command that will parse and process any response from the user.
         """
@@ -112,7 +114,6 @@ class Trebek(BotPlugin):
     def get_channel_id(self):
         # TODO - Actually get the channel ID from HipChat
         return "1"
-        
 
     def start_jeopardy(self):
         key = "activeRound:{0}".format(self.get_channel_id())
@@ -200,7 +201,6 @@ class Trebek(BotPlugin):
         import random
         return random.sample(quotes, 1)[0]
 
-    @botcmd
     def trebek_help(self, message, args):
         return """
 !trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
@@ -266,3 +266,11 @@ class Trebek(BotPlugin):
     #     """A command which simply returns 'Example'"""
     #     return "Example"
 
+
+@route ("/", method='POST')
+def index():
+    print(request.json)
+    return "OK"
+
+if __name__ == "__main__":
+    run (host='localhost', port=8080, reloader=True)
