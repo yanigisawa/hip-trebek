@@ -4,7 +4,7 @@ import re
 import difflib
 import time
 import requests
-
+import json
 from bottle import route, run, template, request
 
 # trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
@@ -269,8 +269,11 @@ class Trebek(object):
 
 @route ("/", method='POST')
 def index():
-    print(request.json)
-    return "OK"
+    parameters = {}
+    # parameters['from'] = 'Alice'
+    parameters['message'] = 'Message Received'
+    parameters['color'] = 'random'
+    return json.dumps(parameters)
 
 if __name__ == "__main__":
     run (host='localhost', port=8080, reloader=True)
