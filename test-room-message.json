@@ -1,0 +1,33 @@
+{
+  "event": "room_message",
+  "oauth_client_id": "4e20ce20-5814-4512-8018-4164f5a40567",
+  "webhook_id": 2487579,
+  "item": {
+    "room": {
+      "id": 436620,
+      "version": "00000000",
+      "links": {
+        "participants": "https://api.hipchat.com/v2/room/436620/participant",
+        "self": "https://api.hipchat.com/v2/room/436620",
+        "webhooks": "https://api.hipchat.com/v2/room/436620/webhook"
+      },
+      "name": "test"
+    },
+    "message": {
+      "mentions": [],
+      "date": "2015-09-03T16:57:51.714342+00:00",
+      "from": {
+        "version": "00000000",
+        "id": 582174,
+        "mention_name": "JamesAlexander",
+        "links": {
+          "self": "https://api.hipchat.com/v2/user/582174"
+        },
+        "name": "James A"
+      },
+      "message": "/trebek jeopardy is some additional text for the command",
+      "id": "a51c68c6-edc2-4a9f-ab2a-6d97fe447a08",
+      "type": "message"
+    }
+  }
+}
