@@ -278,8 +278,8 @@ class Trebek:
 
     def get_help(self):
         return """
-/trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
-/trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!
+/trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.<br/>
+/trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!<br/>
 /trebek score: shows your current score.
 /trebek leaderboard: shows the current top scores.
 /trebek loserboard: shows the current bottom scores.
