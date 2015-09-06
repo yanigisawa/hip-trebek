@@ -87,9 +87,9 @@ class Trebek:
         if not self.redis.exists(shush_key):
             if self.redis.exists(key):
                 active_clue = self.get_active_clue()
-                message = "The answer was: {0}\n".format(active_clue.answer)
+                message = "The answer was: <b>{0}</b><br/>".format(active_clue.answer)
             clue = self.get_jeopardy_clue()
-            message += "The category is `{0}` for {1}: {2}".format(clue.category.title, 
+            message += "The category is <b>{0}</b> for {1}: <i>{2}</i>".format(clue.category.title, 
                     self.format_currency(clue.value), clue.question)
             
             pipe = self.redis.pipeline()
