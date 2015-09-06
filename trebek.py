@@ -224,12 +224,13 @@ class Trebek:
         return self.get_formatted_board(sorted_leaders)
 
     def get_formatted_board(self, sorted_board):
-        board = ""
+        board = "<ol>"
         for i, user in enumerate(sorted_board):
-            board += '{0}. {1} - {2}\n'.format(i + 1, self.get_user_name(user[0]), 
+            board += '<li>{1} - {2}</li>'.format(i + 1, self.get_user_name(user[0]), 
                     self.format_currency(user[1]))
             if i + 1 >= self.board_limit: break
 
+        board += "</ol>"
         return board
             
     def format_currency(self, string_value):
@@ -277,14 +278,15 @@ class Trebek:
         return random.sample(quotes, 1)[0]
 
     def get_help(self):
-        return """
-/trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.<br/>
-/trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!<br/>
-/trebek score: shows your current score.
-/trebek leaderboard: shows the current top scores.
-/trebek loserboard: shows the current bottom scores.
-/trebek answer: shows the answer to the previous round.
-/trebek help: shows this help information.
+        return """<ul>
+<li>/trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.</li>
+<li>/trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!</li>
+<li>/trebek score: shows your current score.</li>
+<li>/trebek leaderboard: shows the current top scores.</li>
+<li>/trebek loserboard: shows the current bottom scores.</li>
+<li>/trebek answer: shows the answer to the previous round.</li>
+<li>/trebek help: shows this help information.</li>
+</ul>
 """
 
 @route ("/", method='POST')

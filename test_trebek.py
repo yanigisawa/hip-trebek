@@ -124,22 +124,22 @@ class TestTrebek(unittest.TestCase):
 
     def test_leaderboard_returns_scores_in_order(self):
         self.create_user_scores()
-        expected = "1. Arian - $5,430\n"
-        expected += "2. Darren S - $500\n"
-        expected += "3. Zach - $412\n"
-        expected += "4. Alex - $225\n"
-        expected += "5. Richard - $200\n"
+        expected =  "<ol><li>Arian - $5,430</li>"
+        expected += "<li>Darren S - $500</li>"
+        expected += "<li>Zach - $412</li>"
+        expected += "<li>Alex - $225</li>"
+        expected += "<li>Richard - $200</li></ol>"
 
         actual = self.trebek_bot.get_leaderboard()
         self.assertEqual(expected, actual)
 
     def test_loserboard_returns_scores_in_reverse_order(self):
         self.create_user_scores()
-        expected = "1. Allen - $20\n"
-        expected += "2. Mark - $30\n"
-        expected += "3. Melvin - $50\n"
-        expected += "4. Cordarrell - $70\n"
-        expected += "5. Reggie - $87\n"
+        expected =  "<ol><li>Allen - $20</li>"
+        expected += "<li>Mark - $30</li>"
+        expected += "<li>Melvin - $50</li>"
+        expected += "<li>Cordarrell - $70</li>"
+        expected += "<li>Reggie - $87</li></ol>"
 
         actual = self.trebek_bot.get_loserboard()
         self.assertEqual(expected, actual)
@@ -177,11 +177,11 @@ class TestTrebek(unittest.TestCase):
         self.create_user_scores(bot)
         response = bot.get_response_message()
 
-        expected = "1. Arian - $5,430\n"
-        expected += "2. Darren S - $500\n"
-        expected += "3. Zach - $412\n"
-        expected += "4. Alex - $225\n"
-        expected += "5. Richard - $200\n"
+        expected =  "<ol><li>Arian - $5,430</li>"
+        expected += "<li>Darren S - $500</li>"
+        expected += "<li>Zach - $412</li>"
+        expected += "<li>Alex - $225</li>"
+        expected += "<li>Richard - $200</li></ol>"
         self.assertEqual(expected, response)
 
     def test_user_loserboard_value_returned(self):
@@ -191,11 +191,11 @@ class TestTrebek(unittest.TestCase):
         self.create_user_scores(bot)
         response = bot.get_response_message()
 
-        expected = "1. Allen - $20\n"
-        expected += "2. Mark - $30\n"
-        expected += "3. Melvin - $50\n"
-        expected += "4. Cordarrell - $70\n"
-        expected += "5. Reggie - $87\n"
+        expected =  "<ol><li>Allen - $20</li>"
+        expected += "<li>Mark - $30</li>"
+        expected += "<li>Melvin - $50</li>"
+        expected += "<li>Cordarrell - $70</li>"
+        expected += "<li>Reggie - $87</li></ol>"
         self.assertEqual(expected, response)
         
     def test_jeopardy_round_can_start_from_nothing(self):
