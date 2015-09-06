@@ -89,7 +89,7 @@ class Trebek:
                 active_clue = self.get_active_clue()
                 message = "The answer was: <b>{0}</b><br/>".format(active_clue.answer)
             clue = self.get_jeopardy_clue()
-            message += "The category is <b>{0}</b> for {1}: <i>{2}</i>".format(clue.category.title, 
+            message += "The category is <b>{0}</b> for {1}: <b>{2}</b>".format(clue.category.title.upper(), 
                     self.format_currency(clue.value), clue.question)
             
             pipe = self.redis.pipeline()
