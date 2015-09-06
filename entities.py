@@ -51,10 +51,7 @@ class QuestionEncoder(json.JSONEncoder):
 class HipChatFromUser(object):
     def __init__(self, from_user):
         self.id = from_user["id"]
-        self.links = from_user["links"]
-        self.mention_name = from_user["mention_name"]
         self.name = from_user["name"]
-        self.version = from_user["version"]
 
 class HipChatMessage(object):
     def __init__(self, jsonDict):

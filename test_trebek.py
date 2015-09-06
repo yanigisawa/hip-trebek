@@ -17,13 +17,27 @@ class TestTrebek(unittest.TestCase):
     def setUp(self):
         with open ('test-room-message.json') as data:
             d = json.load(data)
-        room_message = entities.HipChatRoomMessage(**d)
-        self.trebek_bot = trebek.Trebek(room_message)
+        self.room_message = entities.HipChatRoomMessage(**d)
+        self.trebek_bot = trebek.Trebek(self.room_message)
         self.trebek_bot.redis = fakeredis.FakeStrictRedis()
         self.trebek_bot.fetch_random_clue = fake_fetch_random_clue
+
+    def get_setup_json(self):
+        with open('test-room-message.json') as data:
+            d = json.load(data)
+        return d
+
+    def create_bot_with_dictionary(self, room_dictionary):
+        bot = trebek.Trebek(entities.HipChatRoomMessage(**room_dictionary))
+        bot.redis = fakeredis.FakeStrictRedis()
+        bot.fetch_random_clue = fake_fetch_random_clue
+        return bot
     
-    def create_user_scores(self):
-        r = self.trebek_bot.redis
+    def create_user_scores(self, bot = None):
+        if bot != None:
+            r = bot.redis
+        else:
+            r = self.trebek_bot.redis
         hipchat = trebek.Trebek.hipchat_user_key
         r.set(hipchat.format(1), 'Aaron')
         r.set(hipchat.format(2), 'Allen')
@@ -56,12 +70,6 @@ class TestTrebek(unittest.TestCase):
     def test_when_value_not_included_default_to_200(self):
         test_clue = self.trebek_bot.fetch_random_clue()
         self.assertEqual(test_clue.value, 200)
-
-    def test_round_in_progress_cannot_start_new_round(self):
-        self.trebek_bot.start_jeopardy()
-        response = self.trebek_bot.parse_message()
-            
-        self.assertEqual("Round in progress, cannot start a new Jeopardy round.", response) 
 
     def test_when_answer_includes_html_answer_is_sanitized(self):
         # example answer: <i>Let\\'s Make a Deal</i>
@@ -96,7 +104,7 @@ class TestTrebek(unittest.TestCase):
         with open ('test-room-message.json') as data:
             d = json.load(data)
         t = entities.HipChatRoomMessage(**d)
-        self.assertEqual(t.item.message.message, "jeopardy is some additional text for the command")
+        self.assertEqual(t.item.message.message, "jeopardy") 
         self.assertEqual(t.item.message.user_from.name, "James A")
 
     def test_message_object_trims_leading_slash_command(self):
@@ -106,45 +114,189 @@ class TestTrebek(unittest.TestCase):
         msg = entities.HipChatMessage(p)
         self.assertEqual(msg.message, "jeopardy me")
 
-    def test_when_parse_message_is_called_user_name_is_saved(self):
-        self.trebek_bot.parse_message()
+    def test_when_get_response_message_is_called_user_name_is_saved(self):
+        self.trebek_bot.get_response_message()
         key = trebek.Trebek.hipchat_user_key.format('582174')
         self.assertTrue(self.trebek_bot.redis.exists(key))
 
         user_name = self.trebek_bot.redis.get(trebek.Trebek.hipchat_user_key.format('582174')).decode()
         self.assertEqual("James A", user_name)
 
-
     def test_leaderboard_returns_scores_in_order(self):
         self.create_user_scores()
-        expected = "1. Arian - 5430\n"
-        expected += "2. Darren S - 500\n"
-        expected += "3. Zach - 412\n"
-        expected += "4. Alex - 225\n"
-        expected += "5. Richard - 200\n"
+        expected = "1. Arian - $5,430\n"
+        expected += "2. Darren S - $500\n"
+        expected += "3. Zach - $412\n"
+        expected += "4. Alex - $225\n"
+        expected += "5. Richard - $200\n"
 
         actual = self.trebek_bot.get_leaderboard()
         self.assertEqual(expected, actual)
 
     def test_loserboard_returns_scores_in_reverse_order(self):
         self.create_user_scores()
-        expected = "1. Allen - 20\n"
-        expected += "2. Mark - 30\n"
-        expected += "3. Melvin - 50\n"
-        expected += "4. Cordarrell - 70\n"
-        expected += "5. Reggie - 87\n"
+        expected = "1. Allen - $20\n"
+        expected += "2. Mark - $30\n"
+        expected += "3. Melvin - $50\n"
+        expected += "4. Cordarrell - $70\n"
+        expected += "5. Reggie - $87\n"
 
         actual = self.trebek_bot.get_loserboard()
         self.assertEqual(expected, actual)
 
+    def test_number_is_formatted_as_currency(self):
+        currency = self.trebek_bot.format_currency("100")
+        self.assertEqual("$100", currency)
+
+        currency = self.trebek_bot.format_currency("1000")
+        self.assertEqual("$1,000", currency)
+
+        currency = self.trebek_bot.format_currency("1000000000")
+        self.assertEqual("$1,000,000,000", currency)
+
+        currency = self.trebek_bot.format_currency("-100")
+        self.assertEqual("-$100", currency)
+
+        currency = self.trebek_bot.format_currency("-1000000000")
+        self.assertEqual("-$1,000,000,000", currency)
 
 
+    def test_user_requests_score_value_returned(self):
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek score"
+        bot = self.create_bot_with_dictionary(d)
+        key = trebek.Trebek.user_score_key.format(bot.room_message.item.message.user_from.id)
+        bot.redis.set(key, 500)
+        response = bot.get_response_message()
+        self.assertEqual("$500", response)
 
+    def test_user_leaderboard_value_returned(self):
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek leaderboard"
+        bot = self.create_bot_with_dictionary(d)
+        self.create_user_scores(bot)
+        response = bot.get_response_message()
 
+        expected = "1. Arian - $5,430\n"
+        expected += "2. Darren S - $500\n"
+        expected += "3. Zach - $412\n"
+        expected += "4. Alex - $225\n"
+        expected += "5. Richard - $200\n"
+        self.assertEqual(expected, response)
 
+    def test_user_loserboard_value_returned(self):
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek show me the loserboard"
+        bot = self.create_bot_with_dictionary(d)
+        self.create_user_scores(bot)
+        response = bot.get_response_message()
 
-
+        expected = "1. Allen - $20\n"
+        expected += "2. Mark - $30\n"
+        expected += "3. Melvin - $50\n"
+        expected += "4. Cordarrell - $70\n"
+        expected += "5. Reggie - $87\n"
+        self.assertEqual(expected, response)
         
+    def test_jeopardy_round_can_start_from_nothing(self):
+        response = self.trebek_bot.get_response_message()
+        expected = "The category is `classic game show taglines` for $200: "
+        expected += "\"Caveat emptor.  Let the buyer beware\""
+                
+        self.assertEqual(expected, response)
+
+    def test_user_cannot_answer_same_question_twice(self):
+        # Arrange 
+        clue = self.trebek_bot.get_jeopardy_clue()
+        d = self.get_setup_json()
+        user_answer_key = trebek.Trebek.user_answer_key.format(
+                self.trebek_bot.room_id, clue.id, d['item']['message']['from']['id'])
+        self.trebek_bot.redis.set(user_answer_key, 'true')
+        d['item']['message']['message'] = '/trebek this is an answer'
+
+        bot = self.create_bot_with_dictionary(d)
+        bot.redis = self.trebek_bot.redis
+
+        # Act
+        response = bot.get_response_message()
+
+        # Assert
+        self.assertEqual("You have already answered James A. Let someone else respond.", response)
+
+    def test_given_incorrect_answer_user_score_decreased(self):
+        # Arrange 
+        d = self.get_setup_json()
+        d['item']['message']['message'] = '/trebek some test answer'
+        bot = self.create_bot_with_dictionary(d)
+        bot.redis = fakeredis.FakeStrictRedis()
+        bot.get_question()
+        response = bot.get_response_message()
+        user_score_key = bot.user_score_key.format(
+                self.trebek_bot.room_message.item.message.user_from.id)
+
+        # Act
+        score = bot.redis.get(user_score_key)
+        bot.redis.flushdb()
+
+        # Assert
+        self.assertEqual("-$200", bot.format_currency(score))
+        self.assertEqual("That is incorrect. Your score is now -$200", response)
+
+    def test_given_correct_answer_user_score_increased(self):
+        # Arrange 
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek what is Let's Make a deal"
+        bot = self.create_bot_with_dictionary(d)
+        bot.redis = fakeredis.FakeStrictRedis()
+        bot.get_question()
+        response = bot.get_response_message()
+        user_score_key = bot.user_score_key.format(
+                self.trebek_bot.room_message.item.message.user_from.id)
+
+        # Act
+        score = bot.redis.get(user_score_key)
+        bot.redis.flushdb()
+
+        # Assert
+        self.assertEqual("$200", bot.format_currency(score))
+        self.assertEqual("That is correct! Your score is now $200", response)
+
+    def test_given_correct_answer_nonQuestion_form_user_score_ddcreased(self):
+        # Arrange 
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek Let's Make a deal"
+        bot = self.create_bot_with_dictionary(d)
+        bot.redis = fakeredis.FakeStrictRedis()
+        bot.get_question()
+        response = bot.get_response_message()
+        user_score_key = bot.user_score_key.format(
+                self.trebek_bot.room_message.item.message.user_from.id)
+
+        # Act
+        score = bot.redis.get(user_score_key)
+        bot.redis.flushdb()
+
+        # Assert
+        self.assertEqual("-$200", bot.format_currency(score))
+        self.assertEqual("That is correct, however responses should be in the form of a question. Your score is now -$200", response)
+    
+    def test_when_asked_for_answer_bot_responds_with_answer(self):
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek answer"
+        bot = self.create_bot_with_dictionary(d)
+        response = bot.get_response_message()
+
+        self.assertEqual("The answer was: Let's Make a Deal", response)
+
+
+    def test_when_no_question_exists_answer_returns_no_active_clue(self):
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek answer"
+        bot = self.create_bot_with_dictionary(d)
+        bot.redis.flushdb()
+        response = bot.get_response_message()
+
+        self.assertEqual("No active clue. Type '/trebek jeopardy' to start a round", response)
 
 def main():
     unittest.main()

@@ -24,114 +24,152 @@ class Trebek:
     user_score_key = "user_score:{0}"
     user_score_scan_key = "user_score:*"
     user_score_regex_key = "user_score:"
-    board_limit = 5
+    shush_key = "shush:{0}"
+    shush_answer_key = "shush:answer:{0}"
+    user_answer_key = "user_answer:{0}:{1}:{2}"
+    board_limit = int(os.environ.get("BOARD_LIMIT"))
 
 
     def __init__(self, room_message = None):
-        # TODO - Make this variable configurable
-        self.seconds_to_expire = 30
+        self.seconds_to_expire = int(os.environ.get("SECONDS_TO_EXPIRE"))
         uri = urlparse(os.environ.get('REDIS_URL'))
         self.redis = redis.StrictRedis(host = uri.hostname, 
                 port = uri.port, password = uri.password)
         self.room_message = room_message
         self.room_id = self.room_message.item.room.room_id
 
-    def get_active_clue(self, key):
+    def get_active_clue(self):
+        key = self.clue_key.format(self.room_id)
         obj = None
-        if key.startswith(self.clue_key[:4]):
+        if self.redis.exists(key):
             o = self.redis.get(key)
             obj = entities.Question(**json.loads(o.decode()))
 
         return obj
 
-    def parse_message(self):
+    def get_response_message(self):
         cmd = self.room_message.item.message.message
         self.save_hipchat_user()
         if re.match('^jeopardy*', cmd):
-            response = self.respond_with_question()
-        elif re.match('my score$', cmd):
-            response = self.respond_with_user_score()
+            response = self.get_question()
+        elif re.match('^score$', cmd):
+            response = self.get_user_score()
         elif re.match('^help$', cmd):
-            response = self.respond_with_help()
-        elif re.match('^show (me\s+)?(the\s+)?leaderboard$', cmd):
-            response = self.respond_with_leaderboard()
-        elif re.match('^show (me\s+)?(the\s+)?loserboard$', cmd):
-            response = self.respond_with_loserboard()
+            response = self.get_help()
+        elif re.match('^answer$', cmd):
+            response = self.get_answer()
+        elif re.match('^(show\s+)?(me\s+)?(the\s+)?leaderboard$', cmd):
+            response = self.get_leaderboard()
+        elif re.match('^(show\s+)?(me\s+)?(the\s+)?loserboard$', cmd):
+            response = self.get_loserboard()
         else:
             response = self.process_answer()
 
         return response
+
+    def get_user_score(self):
+        key = self.user_score_key.format(self.room_message.item.message.user_from.id)
+        if self.redis.exists(key):
+            score = int(self.redis.get(key).decode())
+        else:
+            score = 0
+        return self.format_currency(score)
 
     def save_hipchat_user(self):
         key = self.hipchat_user_key.format(self.room_message.item.message.user_from.id)
         if not self.redis.exists(key):
             self.redis.set(key, self.room_message.item.message.user_from.name)
 
-    def respond_with_question(self):
-        # TODO: Format currency in all places
+    def get_question(self):
         message = ""
         key = self.clue_key.format(self.room_id) 
-        if self.redis.exists(key):
-            print(self.can_start_new_round())
-            if self.can_start_new_round():
-                message = "The answer was: {0}\n".format(self[key].answer)
-                clue = self.start_jeopardy()
-                message += "The category is `{0}` for {1}: {2}".format(clue.category.title, clue.value, clue.question)
-            else:
-                message = "Round in progress, cannot start a new Jeopardy round."
+        shush_key = self.shush_key.format(self.room_id)
+        if not self.redis.exists(shush_key):
+            if self.redis.exists(key):
+                active_clue = self.get_active_clue()
+                message = "The answer was: {0}\n".format(active_clue.answer)
+            clue = self.get_jeopardy_clue()
+            message += "The category is `{0}` for {1}: {2}".format(clue.category.title, 
+                    self.format_currency(clue.value), clue.question)
             
+            pipe = self.redis.pipeline()
+            pipe.set(key, json.dumps(clue, cls=entities.QuestionEncoder))
+            pipe.setex(shush_key, 10, 'true')
+            pipe.execute()
         return message
+
+    def get_answer(self):
+        clue = self.get_active_clue()
+        if clue == None:
+            response = "No active clue. Type '/trebek jeopardy' to start a round"
+        else:
+            response = 'The answer was: {0}'.format(clue.answer)
+            self.mark_question_as_answered()
+        return response
 
     def process_answer(self):
         """ Command that will parse and process any response from the user.
         """
         key = self.clue_key.format(self.room_id) 
-        if key not in self.redis:
+        shush_answer = self.shush_answer_key.format(self.room_id)
+        if not self.redis.exists(key) and not self.redis.exists(shush_answer):
             return self.trebek_me()
 
         response = ""
-        clue = self[key]
-        correct_answer = self.is_correct_answer(clue.answer, args)
-        if clue.expiration < time.time():
+        clue = self.get_active_clue()
+        user_answer = self.room_message.item.message.message
+        correct_answer = self.is_correct_answer(clue.answer, user_answer)
+        user_answer_key = self.user_answer_key.format(self.room_id,
+                clue.id, self.room_message.item.message.user_from.id)
+
+        if self.redis.exists(user_answer_key):
+            response = "You have already answered {0}. Let someone else respond.".format(
+                    self.room_message.item.message.user_from.name)
+        elif clue.expiration < time.time():
             if correct_answer:
                 response = "That is correct, however time is up."
             else:
                 response = "Time is up! The correct answer was: `{0}`".format(clue.answer)
             self.mark_question_as_answered()
-        elif self.response_is_a_question(args) and correct_answer:
-            # TODO: Update score calculation here - Positive amount
-            response = "That is correct!"
+        elif self.response_is_a_question(user_answer) and correct_answer:
+            score = self.update_score(clue.value)
+            response = "That is correct! Your score is now {0}".format(self.format_currency(score))
             self.mark_question_as_answered()
         elif correct_answer:
-            # TODO: Update score calculation here - negative amount
-            response = "That is correct, however responses should be in the form of a question"
+            score = self.update_score(-clue.value)
+            response = "That is correct, however responses should be in the form of a question. "
+            response += "Your score is now {0}".format(self.format_currency(score))
             clue.expiration = time.time() + self.seconds_to_expire
-            self[key] = clue
+            self.redis.setex(user_answer_key, self.seconds_to_expire, 'true')
         else:
-            # TODO: Update Score - negative amount
-            response = "That is incorrect."
+            score = self.update_score(-clue.value)
+            response = "That is incorrect. Your score is now {0}".format(self.format_currency(score))
             clue.expiration = time.time() + self.seconds_to_expire
-            self[key] = clue
+            self.redis.setex(user_answer_key, self.seconds_to_expire, 'true')
 
         return response
         
     def mark_question_as_answered(self):
-        del self[self.clue_key.format(self.room_id)]
+        pipe = self.redis.pipeline()
+        pipe.delete(self.clue_key.format(self.room_id))
+        pipe.delete(self.shush_key.format(self.room_id))
+        pipe.setex(self.shush_answer_key.format(self.room_id), 5, 'true')
+        pipe.execute()
 
-    def can_start_new_round(self):
-        key = self.clue_key.format(self.room_id)
-        question = self.get_active_clue(key)
-        if question != None and question.expiration > time.time():
-            return False
+    def update_score(self, score = 0):
+        key = self.user_score_key.format(self.room_message.item.message.user_from.id)
+        old_score = 0
+        if self.redis.exists(key):
+            old_score = int(self.redis.get(key))
 
-        return True
+        new_score = old_score + score
+        self.redis.set(key, new_score)
+        return new_score
 
-    def start_jeopardy(self):
+    def get_jeopardy_clue(self):
         key = self.clue_key.format(self.room_id)
         clue = self.fetch_random_clue()
         clue.expiration = time.time() + self.seconds_to_expire
-        json_data = json.dumps(clue, cls=entities.QuestionEncoder)
-        self.redis.set(key, json_data)
         return clue
 
     def fetch_random_clue(self):
@@ -167,7 +205,6 @@ class Trebek:
         return self.redis.get(key).decode()
 
     def get_loserboard(self):
-        # TODO: Format currency
         losers = {}
         for score_key in self.redis.scan_iter(match=self.user_score_scan_key):
             user_id = re.sub(self.user_score_regex_key, '', score_key.decode())
@@ -178,7 +215,6 @@ class Trebek:
         return self.get_formatted_board(sorted_losers)
 
     def get_leaderboard(self):
-        # TODO: Format currency
         leaders = {}
         for score_key in self.redis.scan_iter(match=self.user_score_scan_key):
             user_id = re.sub(self.user_score_regex_key, '', score_key.decode())
@@ -190,12 +226,17 @@ class Trebek:
     def get_formatted_board(self, sorted_board):
         board = ""
         for i, user in enumerate(sorted_board):
-            board += '{0}. {1} - {2}\n'.format(i + 1, self.get_user_name(user[0]), user[1])
-            if i + 1 >= self.board_limit:
-                break
+            board += '{0}. {1} - {2}\n'.format(i + 1, self.get_user_name(user[0]), 
+                    self.format_currency(user[1]))
+            if i + 1 >= self.board_limit: break
 
         return board
             
+    def format_currency(self, string_value):
+        prefix = "$"
+        if int(string_value) < 0: prefix = "-$"
+        return prefix + format(abs(int(string_value)), ',')
+
 
     # Funny quotes from SNL's Celebrity Jeopardy, to speak
     # when someone invokes trebekbot and there's no active round.
@@ -235,70 +276,16 @@ class Trebek:
         import random
         return random.sample(quotes, 1)[0]
 
-    def trebek_help(self, message, args):
+    def get_help(self):
         return """
-!trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
-!trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!
-!trebek score: shows your current score.
-!trebek leaderboard: shows the current top scores.
-!trebek loserboard: shows the current bottom scores.
-!trebek help: shows this help information.
+/trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
+/trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!
+/trebek score: shows your current score.
+/trebek leaderboard: shows the current top scores.
+/trebek loserboard: shows the current bottom scores.
+/trebek answer: shows the answer to the previous round.
+/trebek help: shows this help information.
 """
-    # def activate(self):
-    #     """Triggers on plugin activation
-
-    #     You should delete it if you're not using it to override any default behaviour"""
-    #     super(Skeleton, self).activate()
-
-    # def deactivate(self):
-    #     """Triggers on plugin deactivation
-
-    #     You should delete it if you're not using it to override any default behaviour"""
-    #     super(Skeleton, self).deactivate()
-
-    # def get_configuration_template(self):
-    #     """Defines the configuration structure this plugin supports
-
-    #     You should delete it if your plugin doesn't use any configuration like this"""
-    #     return {'EXAMPLE_KEY_1': "Example value",
-    #             'EXAMPLE_KEY_2': ["Example", "Value"]
-    #            }
-
-    # def check_configuration(self, configuration):
-    #     """Triggers when the configuration is checked, shortly before activation
-
-    #     You should delete it if you're not using it to override any default behaviour"""
-    #     super(Skeleton, self).check_configuration()
-
-    # def callback_connect(self):
-    #     """Triggers when bot is connected
-
-    #     You should delete it if you're not using it to override any default behaviour"""
-    #     pass
-
-    # def callback_message(self, conn, message):
-    #     """Triggered for every received message that isn't coming from the bot itself
-
-    #     You should delete it if you're not using it to override any default behaviour"""
-    #     pass
-
-    # def callback_botmessage(self, message):
-    #     """Triggered for every message that comes from the bot itself
-
-    #     You should delete it if you're not using it to override any default behaviour"""
-    #     pass
-
-    # @webhook
-    # def example_webhook(self, incoming_request):
-    #     """A webhook which simply returns 'Example'"""
-    #     return "Example"
-
-    # # Passing split_args_with=None will cause arguments to be split on any kind
-    # # of whitespace, just like Python's split() does
-    # @botcmd(split_args_with=None)
-    # def example(self, mess, args):
-    #     """A command which simply returns 'Example'"""
-    #     return "Example"
 
 @route ("/", method='POST')
 def index():
@@ -307,9 +294,9 @@ def index():
     parameters = {}
     parameters['from'] = 'trebek'
     parameters['room_id'] = msg.item.room.room_id 
-    parameters['message'] = trebek.response
+    parameters['message'] = trebek.get_response_message()
     parameters['color'] = 'gray'
     return json.dumps(parameters)
 
 if __name__ == "__main__":
-    run (host='localhost', port=8080, reloader=True)
+    run (host='localhost', port=8080, reloader=True, server='paste')

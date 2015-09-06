@@ -25,7 +25,7 @@
         },
         "name": "James A"
       },
-      "message": "/trebek jeopardy is some additional text for the command",
+      "message": "/trebek jeopardy", 
       "id": "a51c68c6-edc2-4a9f-ab2a-6d97fe447a08",
       "type": "message"
     }
