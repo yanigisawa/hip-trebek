@@ -28,7 +28,7 @@ class Trebek:
     shush_answer_key = "shush:answer:{0}"
     user_answer_key = "user_answer:{0}:{1}:{2}"
     board_limit = int(os.environ.get("BOARD_LIMIT"))
-    answer_match_ratio = int(os.environ.get("ANSWER_MATCH_RATIO"))
+    answer_match_ratio = float(os.environ.get("ANSWER_MATCH_RATIO"))
     seconds_to_expire = int(os.environ.get("SECONDS_TO_EXPIRE"))
 
     def __init__(self, room_message = None):
@@ -303,7 +303,7 @@ class Trebek:
 
 @route ("/", method='POST')
 def index():
-    print("AUTH HEADER: {0}".format(request.get_header("Authorization"))
+    print("AUTH HEADER: {0}".format(request.get_header("Authorization")))
     print("REQUEST: {0}".format(request.json))
     msg = entities.HipChatRoomMessage(**request.json)
     trebek = Trebek(msg)
