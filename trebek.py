@@ -6,7 +6,7 @@ import time
 import requests
 import json
 import entities
-from bottle import route, run, template, request
+from bottle import route, run, template, request, response
 from urllib.parse import urlparse
 import os 
 
@@ -17,6 +17,12 @@ import os
 # trebek loserboard: shows the current bottom scores.
 # trebek help: shows this help information.
 
+# Environment Variable Keys
+_auth_header = "AUTH_HEADER"
+_board_limit = "BOARD_LIMIT"
+_answer_match_ratio = "ANSWER_MATCH_RATIO"
+_secods_to_expire = "SECONDS_TO_EXPIRE"
+_redis_url = "REDIS_URL"
 
 class Trebek:
     clue_key = "activeClue:{0}"
@@ -27,12 +33,12 @@ class Trebek:
     shush_key = "shush:{0}"
     shush_answer_key = "shush:answer:{0}"
     user_answer_key = "user_answer:{0}:{1}:{2}"
-    board_limit = int(os.environ.get("BOARD_LIMIT"))
-    answer_match_ratio = float(os.environ.get("ANSWER_MATCH_RATIO"))
-    seconds_to_expire = int(os.environ.get("SECONDS_TO_EXPIRE"))
+    board_limit = int(os.environ.get(_board_limit))
+    answer_match_ratio = float(os.environ.get(_answer_match_ratio))
+    seconds_to_expire = int(os.environ.get(_secods_to_expire))
 
     def __init__(self, room_message = None):
-        uri = urlparse(os.environ.get('REDIS_URL'))
+        uri = urlparse(os.environ.get(_redis_url))
         self.redis = redis.StrictRedis(host = uri.hostname, 
                 port = uri.port, password = uri.password)
         self.room_message = room_message
@@ -303,8 +309,15 @@ class Trebek:
 
 @route ("/", method='POST')
 def index():
-    print("AUTH HEADER: {0}".format(request.get_header("Authorization")))
     print("REQUEST: {0}".format(request.json))
+    if _auth_header.lower() not in request.query:
+        response.status = 401
+        return "auth_header query parameter required"
+    auth_header = request.query[_auth_header.lower()]
+    if auth_header == None or auth_header != os.environ.get(_auth_header):
+        response.status = 401
+        return "Not Authorized"
+
     msg = entities.HipChatRoomMessage(**request.json)
     trebek = Trebek(msg)
     parameters = {}
