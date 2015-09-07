@@ -1,0 +1,39 @@
+{
+  "name": "hip-trebek",
+  "description": "A Jeopardy! bot for HipChat.",
+  "keywords": [
+    "hipchat",
+    "bot",
+    "jeopardy"
+  ],
+  "repository": "https://github.com/yanigisawa/hip-trebek",
+  "addons": [
+    "rediscloud"
+  ],
+  "success_url": "https://github.com/yanigisawa/hip-trebek#usage",
+  "env": {
+    "AUTH_HEADER": {
+      "description": "The random query string value used to authenticate incoming requests from HipChat. This can be any string you like, just match this Heroku environment variable to the query string value you use to configure the Hipchat web hook.",
+      "required": true
+    },
+    "BOARD_LIMIT": {
+      "description": "The number of users you want to appear in the leader or loser boards when requested with /trebek leaderboard",
+      "required": true,
+      "value": "5"
+    },
+    "ANSWER_MATCH_RATIO": {
+      "description": "From 0 to 1, how similar user answers need to be to the actual answer to be accepted. 1 means exact match; lower values give users some margin for error (e.g typos) but could cause false positives.",
+      "required": true,
+      "value": "0.5"
+    },
+    "SECONDS_TO_EXPIRE": {
+      "description": "Time, in seconds, users have to answer each round.",
+      "required": true,
+      "value": "60"
+    },
+    "REDIS_URL": {
+      "description": "The URL for redis the application can use to persist its data.",
+      "required": true,
+    }
+  }
+}

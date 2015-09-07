@@ -200,8 +200,8 @@ class TestTrebek(unittest.TestCase):
         
     def test_jeopardy_round_can_start_from_nothing(self):
         response = self.trebek_bot.get_response_message()
-        expected = "The category is <b>classic game show taglines</b> for $200: "
-        expected += "<i>\"Caveat emptor.  Let the buyer beware\"</i>"
+        expected = "The category is <b>Classic Game Show Taglines</b> for $200: "
+        expected += "<b>\"Caveat Emptor.  Let The Buyer Beware\"</b>"
                 
         self.assertEqual(expected, response)
 
