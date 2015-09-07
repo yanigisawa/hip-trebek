@@ -28,10 +28,10 @@ class Trebek:
     shush_answer_key = "shush:answer:{0}"
     user_answer_key = "user_answer:{0}:{1}:{2}"
     board_limit = int(os.environ.get("BOARD_LIMIT"))
-
+    answer_match_ratio = int(os.environ.get("ANSWER_MATCH_RATIO"))
+    seconds_to_expire = int(os.environ.get("SECONDS_TO_EXPIRE"))
 
     def __init__(self, room_message = None):
-        self.seconds_to_expire = int(os.environ.get("SECONDS_TO_EXPIRE"))
         uri = urlparse(os.environ.get('REDIS_URL'))
         self.redis = redis.StrictRedis(host = uri.hostname, 
                 port = uri.port, password = uri.password)
@@ -175,7 +175,7 @@ class Trebek:
     def fetch_random_clue(self):
         url = "http://jservice.io/api/random?count=1"
         req = requests.get(url)
-        print(req.json()[0]['answer'])
+        print("ANSWER: {0}".format(req.json()[0]['answer']))
         return entities.Question(**req.json()[0])
 
     def response_is_a_question(self, response):
@@ -197,8 +197,7 @@ class Trebek:
         seq = difflib.SequenceMatcher(a = expected, b = actual)
 
         # print("Expected: {0} - Actual: {1} - Ratio: {2}".format(expected, actual, seq.ratio()))
-        # TODO: Make this ratio confgurable
-        return seq.ratio() >= 0.85
+        return seq.ratio() >= self.answer_match_ratio
 
     def get_user_name(self, user_id):
         key = self.hipchat_user_key.format(user_id)
@@ -265,13 +264,26 @@ class Trebek:
             "Great. Let's take a look at the final board. And the categories are: `Potent Potables`, `Sharp Things`, `Movies That Start with the Word Jaws`, `A Petit Déjeuner` -- that category is about French phrases, so let's just skip it.",
             "Enough. Let's just get this over with. Here are the categories, they are: `Potent Potables`, `Countries Between Mexico and Canada`, `Members of Simon and Garfunkel`, `I Have a Chardonnay` -- you choose this category, you automatically get the points and I get to have a glass of wine -- `Things You Do With a Pencil Sharpener`, `Tie Your Shoe`, and finally, `Toast`.",
             "Better luck to all of you, in the next round. It's time for HipChat Jeopardy, let's take a look at the board. And the categories are: `Potent Potables`, `Literature` -- which is just a big word for books -- `Therapists`, `Current U.S. Presidents`, `Show and Tell`, `Household Objects`, and finally, `One-Letter Words`.",
-            "Uh, I see. Get back to your podium.",
+            "Uh, I see that. Get back to your podium. What is going on?",
             "You look pretty sure of yourself. Think you've got the right answer?",
             "Welcome back to HipChat Jeopardy. We've got a real barnburner on our hands here.",
             "And welcome back to HipChat Jeopardy. I'd like to once again remind our contestants that there are proper bathroom facilities located in the studio.",
             "Welcome back to HipChat Jeopardy. Once again, I'm going to recommend that our viewers watch something else.",
             "Great. Better luck to all of you in the next round. It's time for HipChat Jeopardy. Let's take a look at the board. And the categories are: `Potent Potables`, `The Vowels`, `Presidents Who Are On the One Dollar Bill`, `Famous Titles`, `Ponies`, `The Number 10`, and finally: `Foods That End In \"Amburger\"`.",
-            "Let's take a look at the board. The categories are: `Potent Potables`, `The Pen is Mightier` -- that category is all about quotes from famous authors, so you'll all probably be more comfortable with our next category -- `Shiny Objects`, continuing with `Opposites`, `Things you Shouldn't Put in Your Mouth`, `What Time is It?`, and, finally, `Months That Start With Feb`."
+            "Let's take a look at the board. The categories are: `Potent Potables`, `The Pen is Mightier` -- that category is all about quotes from famous authors, so you'll all probably be more comfortable with our next category -- `Shiny Objects`, continuing with `Opposites`, `Things you Shouldn't Put in Your Mouth`, `What Time is It?`, and, finally, `Months That Start With Feb`.",
+            "I don't know how anyone can get $8, but better luck to you all in the next round",
+            "Let's move onto final Jeopardy! Where the category is `Horsies",
+            "We haven't started playing yet...",
+            "Let's skip therapists and move onto house-hold objects...",
+            "...And the show has reached, a new low.",
+            "...and, you're an idiot",
+            "As usual, three perfectly good charities have been deprived of money here on HipChat jeopardy.",
+            "I feel like I want to punch you",
+            "Apparently Mr. Reynolds has changed his name to Turd Ferguson",
+            "Welcome back to HipChat Jeopardy! You may notice that I'm wearing a different suit. Apparently, Mr. Connery thought my leg was closer than the urinal",
+            "Welcome back to HIpChat Jeopardy! I want to apologize to everyone watching before the break, and want to assure you that all three contestants are wearing pants.",
+            "Let's take a look at the board. The categories are: Continents, Theatre, Potpourri, Potent Potables, Numbers, Words that Rhyme with Dog, and finally, the Renaissance. And you know what, let's just change that last category, to Shapes."
+            "Now let's take a look at the categories for final Jeopardy! `Potent Potables, `Drummers Named Ringo`, `States that begin with 'Californ'`, `Richard Nixon`, `The number after 2`, `Famous Kareem Abdul-Jabbars`, and finally: `Don't Do Anything`"
         ]
 
         import random
@@ -291,6 +303,8 @@ class Trebek:
 
 @route ("/", method='POST')
 def index():
+    print("AUTH HEADER: {0}".format(request.get_header("Authorization"))
+    print("REQUEST: {0}".format(request.json))
     msg = entities.HipChatRoomMessage(**request.json)
     trebek = Trebek(msg)
     parameters = {}
