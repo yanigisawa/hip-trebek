@@ -232,8 +232,7 @@ class Trebek:
     def get_formatted_board(self, sorted_board):
         board = "<ol>"
         for i, user in enumerate(sorted_board):
-            board += '<li>{1} - {2}</li>'.format(i + 1, self.get_user_name(user[0]), 
-                    self.format_currency(user[1]))
+            board += '<li>{0}: {1}</li>'.format(self.get_user_name(user[0]), self.format_currency(user[1]))
             if i + 1 >= self.board_limit: break
 
         board += "</ol>"
