@@ -287,7 +287,7 @@ class Trebek:
             "I feel like I want to punch you",
             "Apparently Mr. Reynolds has changed his name to Turd Ferguson",
             "Welcome back to HipChat Jeopardy! You may notice that I'm wearing a different suit. Apparently, Mr. Connery thought my leg was closer than the urinal",
-            "Welcome back to HIpChat Jeopardy! I want to apologize to everyone watching before the break, and want to assure you that all three contestants are wearing pants.",
+            "Welcome back to HipChat Jeopardy! I want to apologize to everyone watching before the break, and want to assure you that all three contestants are wearing pants.",
             "Let's take a look at the board. The categories are: Continents, Theatre, Potpourri, Potent Potables, Numbers, Words that Rhyme with Dog, and finally, the Renaissance. And you know what, let's just change that last category, to Shapes."
             "Now let's take a look at the categories for final Jeopardy! `Potent Potables, `Drummers Named Ringo`, `States that begin with 'Californ'`, `Richard Nixon`, `The number after 2`, `Famous Kareem Abdul-Jabbars`, and finally: `Don't Do Anything`"
         ]
