@@ -302,8 +302,14 @@ class TestTrebek(unittest.TestCase):
         # e.g.: ANSWER: the <i>Stegosaurus</i>
         c = {'id':1, 'title': 'foo', 'created_at': 'bar', 'updated_at': 'foobar', 'clues_count':1}
         q = entities.Question(1, answer= "the <i>Stegosaurus</i>", category = c)
-        self.assertEquals("the Stegosaurus", q.answer)
+        self.assertEqual("the Stegosaurus", q.answer)
 
+        # e.g.: ANSWER: <i>the Seagull</i>
+        q = entities.Question(1, answer= "<i>the Seagull</i>", category = c)
+        self.assertEqual("the Seagull", q.answer)
+
+        q = entities.Question(1, answer= "Theodore Roosevelt", category = c)
+        self.assertEqual("Theodore Roosevelt", q.answer)
 def main():
     unittest.main()
 

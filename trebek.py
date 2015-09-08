@@ -68,8 +68,20 @@ class Trebek:
             response = self.get_leaderboard()
         elif re.match('^(show\s+)?(me\s+)?(the\s+)?loserboard$', cmd):
             response = self.get_loserboard()
+        elif re.match('^invalid', cmd):
+            response = self.post_clue_invalid()
         else:
             response = self.process_answer()
+
+        return response
+
+    def post_clue_invalid(self):
+        clue = self.get_active_clue()
+        url = "http://jservice.io/api/invalid?id={0}".format(self.clue.id)
+        resp = requests.post(url)
+        response = "Failed to Post Invalid Question"
+        if resp.status_code == 200:
+            response = "Submitted question as invalid. Invalid Count: {0}".format(resp.json['invalid_count']) 
 
         return response
 
