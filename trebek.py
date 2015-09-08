@@ -81,7 +81,7 @@ class Trebek:
         resp = requests.post(url)
         response = "Failed to Post Invalid Question"
         if resp.status_code == 200:
-            response = "Submitted question as invalid. Invalid Count: {0}".format(resp.json['invalid_count']) 
+            response = "Submitted question as invalid. Invalid Count: {0}".format(resp.json()['invalid_count']) 
 
         return response
 
