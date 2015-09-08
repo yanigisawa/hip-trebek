@@ -25,7 +25,7 @@ class Question(object):
         value = 200, expiration = None):
         self.id = id
         soup = bs4.BeautifulSoup(answer, "html.parser")
-        self.answer = soup.findAll(text=True)[0].replace('\\', '')
+        self.answer = soup.get_text().replace('\\', '')
         self.question = question
         if value is None or value == "":
             value = 200

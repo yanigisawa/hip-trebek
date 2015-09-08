@@ -124,22 +124,22 @@ class TestTrebek(unittest.TestCase):
 
     def test_leaderboard_returns_scores_in_order(self):
         self.create_user_scores()
-        expected =  "<ol><li>Arian - $5,430</li>"
-        expected += "<li>Darren S - $500</li>"
-        expected += "<li>Zach - $412</li>"
-        expected += "<li>Alex - $225</li>"
-        expected += "<li>Richard - $200</li></ol>"
+        expected =  "<ol><li>Arian: $5,430</li>"
+        expected += "<li>Darren S: $500</li>"
+        expected += "<li>Zach: $412</li>"
+        expected += "<li>Alex: $225</li>"
+        expected += "<li>Richard: $200</li></ol>"
 
         actual = self.trebek_bot.get_leaderboard()
         self.assertEqual(expected, actual)
 
     def test_loserboard_returns_scores_in_reverse_order(self):
         self.create_user_scores()
-        expected =  "<ol><li>Allen - $20</li>"
-        expected += "<li>Mark - $30</li>"
-        expected += "<li>Melvin - $50</li>"
-        expected += "<li>Cordarrell - $70</li>"
-        expected += "<li>Reggie - $87</li></ol>"
+        expected =  "<ol><li>Allen: $20</li>"
+        expected += "<li>Mark: $30</li>"
+        expected += "<li>Melvin: $50</li>"
+        expected += "<li>Cordarrell: $70</li>"
+        expected += "<li>Reggie: $87</li></ol>"
 
         actual = self.trebek_bot.get_loserboard()
         self.assertEqual(expected, actual)
@@ -177,11 +177,11 @@ class TestTrebek(unittest.TestCase):
         self.create_user_scores(bot)
         response = bot.get_response_message()
 
-        expected =  "<ol><li>Arian - $5,430</li>"
-        expected += "<li>Darren S - $500</li>"
-        expected += "<li>Zach - $412</li>"
-        expected += "<li>Alex - $225</li>"
-        expected += "<li>Richard - $200</li></ol>"
+        expected =  "<ol><li>Arian: $5,430</li>"
+        expected += "<li>Darren S: $500</li>"
+        expected += "<li>Zach: $412</li>"
+        expected += "<li>Alex: $225</li>"
+        expected += "<li>Richard: $200</li></ol>"
         self.assertEqual(expected, response)
 
     def test_user_loserboard_value_returned(self):
@@ -191,11 +191,11 @@ class TestTrebek(unittest.TestCase):
         self.create_user_scores(bot)
         response = bot.get_response_message()
 
-        expected =  "<ol><li>Allen - $20</li>"
-        expected += "<li>Mark - $30</li>"
-        expected += "<li>Melvin - $50</li>"
-        expected += "<li>Cordarrell - $70</li>"
-        expected += "<li>Reggie - $87</li></ol>"
+        expected =  "<ol><li>Allen: $20</li>"
+        expected += "<li>Mark: $30</li>"
+        expected += "<li>Melvin: $50</li>"
+        expected += "<li>Cordarrell: $70</li>"
+        expected += "<li>Reggie: $87</li></ol>"
         self.assertEqual(expected, response)
         
     def test_jeopardy_round_can_start_from_nothing(self):
@@ -297,6 +297,12 @@ class TestTrebek(unittest.TestCase):
         response = bot.get_response_message()
 
         self.assertEqual("No active clue. Type '/trebek jeopardy' to start a round", response)
+
+    def test_when_answer_contains_HTML_word_is_filtered(self):
+        # e.g.: ANSWER: the <i>Stegosaurus</i>
+        c = {'id':1, 'title': 'foo', 'created_at': 'bar', 'updated_at': 'foobar', 'clues_count':1}
+        q = entities.Question(1, answer= "the <i>Stegosaurus</i>", category = c)
+        self.assertEquals("the Stegosaurus", q.answer)
 
 def main():
     unittest.main()
