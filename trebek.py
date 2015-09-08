@@ -181,6 +181,7 @@ class Trebek:
     def fetch_random_clue(self):
         url = "http://jservice.io/api/random?count=1"
         req = requests.get(url)
+        print(req.json())
         print("ANSWER: {0}".format(req.json()[0]['answer']))
         return entities.Question(**req.json()[0])
 
