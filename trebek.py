@@ -77,7 +77,7 @@ class Trebek:
 
     def post_clue_invalid(self):
         clue = self.get_active_clue()
-        url = "http://jservice.io/api/invalid?id={0}".format(self.clue.id)
+        url = "http://jservice.io/api/invalid?id={0}".format(clue.id)
         resp = requests.post(url)
         response = "Failed to Post Invalid Question"
         if resp.status_code == 200:
