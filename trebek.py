@@ -310,13 +310,13 @@ class Trebek:
 @route ("/", method='POST')
 def index():
     print("REQUEST: {0}".format(request.json))
-    if _auth_header.lower() not in request.query:
-        response.status = 401
-        return "auth_header query parameter required"
-    auth_header = request.query[_auth_header.lower()]
-    if auth_header == None or auth_header != os.environ.get(_auth_header):
-        response.status = 401
-        return "Not Authorized"
+    # if _auth_header.lower() not in request.query:
+    #     response.status = 401
+    #     return "auth_header query parameter required"
+    # auth_header = request.query[_auth_header.lower()]
+    # if auth_header == None or auth_header != os.environ.get(_auth_header):
+    #     response.status = 401
+    #     return "Not Authorized"
 
     msg = entities.HipChatRoomMessage(**request.json)
     trebek = Trebek(msg)
