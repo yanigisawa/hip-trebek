@@ -9,6 +9,7 @@ import entities
 from bottle import route, run, template, request, response
 from urllib.parse import urlparse
 import os 
+from threading import Timer
 
 # trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
 # trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!
@@ -23,6 +24,31 @@ _board_limit = "BOARD_LIMIT"
 _answer_match_ratio = "ANSWER_MATCH_RATIO"
 _secods_to_expire = "SECONDS_TO_EXPIRE"
 _redis_url = "REDIS_URL"
+
+def notify_answer(room_id, clue_id):
+    url = "https://api.hipchat.com/v1/room/{0}/notification?auth_token={1}".format(
+            room_id, os.environ.get("HIPCHAT_AUTH_TOKEN"))
+
+    key = Trebek.clue_key.format(room_id)
+    print("key: {0}".format(key))
+
+    uri = urlparse(os.environ.get(_redis_url))
+    r = redis.StrictRedis(host = uri.hostname, 
+            port = uri.port, password = uri.password)
+    if r.exists(key):
+        o = r.get(key)
+        obj = entities.Question(**json.loads(o.decode()))
+        if obj.id == clue_id:
+            parameters = {}
+            parameters['message'] = "The answer was: {0}".format(obj.answer)
+            parameters['room_id'] = room_id
+            parameters['color'] = 'Gray'
+            print("Post to: {0} - {1}".format(url, parameters))
+            resp = requests.post(url, parameters = parameters)
+            if resp.status_code != 204:
+                print('failed to post message to hipchat')
+    else:
+        print('no redis key exists, do not notify')
 
 class Trebek:
     clue_key = "activeClue:{0}"
@@ -114,6 +140,9 @@ class Trebek:
             pipe.set(key, json.dumps(clue, cls=entities.QuestionEncoder))
             pipe.setex(shush_key, 10, 'true')
             pipe.execute()
+            t = Timer(self.seconds_to_expire, notify_answer, args = [self.room_id, clue.id])
+            t.start()
+             
         return message
 
     def get_answer(self):
