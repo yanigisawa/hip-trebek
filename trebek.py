@@ -130,11 +130,11 @@ class Trebek:
         """
         key = self.clue_key.format(self.room_id) 
         shush_answer = self.shush_answer_key.format(self.room_id)
-        if not self.redis.exists(key) and not self.redis.exists(shush_answer):
+        clue = self.get_active_clue()
+        if clue == None and not self.redis.exists(shush_answer):
             return self.trebek_me()
 
         response = ""
-        clue = self.get_active_clue()
         user_answer = self.room_message.item.message.message
         correct_answer = self.is_correct_answer(clue.answer, user_answer)
         user_answer_key = self.user_answer_key.format(self.room_id,
