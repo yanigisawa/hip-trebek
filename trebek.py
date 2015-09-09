@@ -44,7 +44,7 @@ def notify_answer(room_id, clue_id):
             parameters['room_id'] = room_id
             parameters['color'] = 'Gray'
             print("Post to: {0} - {1}".format(url, parameters))
-            resp = requests.post(url, parameters = parameters)
+            resp = requests.post(url, data = parameters)
             if resp.status_code != 204:
                 print('failed to post message to hipchat')
     else:
