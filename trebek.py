@@ -315,6 +315,7 @@ class Trebek:
 <li>/trebek leaderboard: shows the current top scores.</li>
 <li>/trebek loserboard: shows the current bottom scores.</li>
 <li>/trebek answer: shows the answer to the previous round.</li>
+<li>/trebek invalid: submits the active question as invalid to the underlying jservice. See http://jservice.io for more information</li>
 <li>/trebek help: shows this help information.</li>
 </ul>
 """

@@ -28,6 +28,7 @@ If you'd rather do it manually, then just clone this repo, set up a Heroku app w
 * `/trebek leaderboard`: shows the current top scores.
 * `/trebek loserboard`: shows the current bottom scores.
 * `/trebek answer`: displays the answer to the previous question without starting a new round
+* `/trebek invalid`: submits the active question as invalid to [jservice.](http://jservice.io/) Use this if the clue requires visual or audio clues not available in chat.
 * `/trebek help`: shows this help information.
 
 ## Credits & acknowledgements
