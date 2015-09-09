@@ -13,6 +13,8 @@ def fake_fetch_random_clue():
         clue = json.load(json_data) #, object_hook=_json_object_hook)
     return entities.Question(**clue)
 
+_count = 0
+
 class TestTrebek(unittest.TestCase):
     def setUp(self):
         with open ('test-room-message.json') as data:
@@ -310,6 +312,22 @@ class TestTrebek(unittest.TestCase):
 
         q = entities.Question(1, answer= "Theodore Roosevelt", category = c)
         self.assertEqual("Theodore Roosevelt", q.answer)
+
+    def test_when_fetched_clue_is_invalid_get_new_clue(self):
+        def tmp_fake_fetch_clue():
+            global _count
+            with open('test-json-output.json') as json_data:
+                clue = json.load(json_data) #, object_hook=_json_object_hook)
+            if _count == 0:
+                clue['invalid_count'] = 1
+                _count += 1
+            return entities.Question(**clue)
+
+        self.trebek_bot.fetch_random_clue = tmp_fake_fetch_clue
+        clue = self.trebek_bot.get_jeopardy_clue()
+        self.assertEqual(clue.invalid_count, None)
+
+
 def main():
     unittest.main()
 

@@ -189,6 +189,8 @@ class Trebek:
     def get_jeopardy_clue(self):
         key = self.clue_key.format(self.room_id)
         clue = self.fetch_random_clue()
+        while clue.invalid_count != None: 
+            clue = self.fetch_random_clue()
         clue.expiration = time.time() + self.seconds_to_expire
         return clue
 
