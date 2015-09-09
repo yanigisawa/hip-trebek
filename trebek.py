@@ -133,6 +133,8 @@ class Trebek:
         clue = self.get_active_clue()
         if clue == None and not self.redis.exists(shush_answer):
             return self.trebek_me()
+        elif clue == None:
+            return None
 
         response = ""
         user_answer = self.room_message.item.message.message
@@ -333,12 +335,15 @@ def index():
 
     msg = entities.HipChatRoomMessage(**request.json)
     trebek = Trebek(msg)
-    parameters = {}
-    parameters['from'] = 'trebek'
-    parameters['room_id'] = msg.item.room.room_id 
-    parameters['message'] = trebek.get_response_message()
-    parameters['color'] = 'gray'
-    return json.dumps(parameters)
+    response_message = trebek.get_response_message()
+    if response_message != None:
+        parameters = {}
+        parameters['from'] = 'trebek'
+        parameters['room_id'] = msg.item.room.room_id 
+        parameters['message'] = response_message
+        parameters['color'] = 'gray'
+
+        return json.dumps(parameters)
 
 if __name__ == "__main__":
     run (host='localhost', port=8080, reloader=True, server='paste')
