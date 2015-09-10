@@ -25,9 +25,12 @@ _answer_match_ratio = "ANSWER_MATCH_RATIO"
 _secods_to_expire = "SECONDS_TO_EXPIRE"
 _redis_url = "REDIS_URL"
 _hipchat_auth_token = "HIPCHAT_AUTH_TOKEN"
+_timer = None
 _unit_test = "UNIT_TEST"
 
 def notify_answer(room_id, clue_id):
+    global _timer
+    _timer.cancel()
     url = "https://api.hipchat.com/v1/rooms/message?auth_token={1}".format(
             room_id, os.environ.get(_hipchat_auth_token))
 
@@ -41,6 +44,7 @@ def notify_answer(room_id, clue_id):
         o = r.get(key)
         obj = entities.Question(**json.loads(o.decode()))
         if obj.id == clue_id:
+            r.delete(key)
             parameters = {}
             parameters['message'] = "The answer was: {0}".format(obj.answer)
             parameters['room_id'] = room_id
@@ -144,8 +148,9 @@ class Trebek:
             pipe.setex(shush_key, 10, 'true')
             pipe.execute()
             if not os.environ.get(_unit_test):
-                t = Timer(self.seconds_to_expire, notify_answer, args = [self.room_id, clue.id])
-                t.start()
+                global _timer
+                _timer = Timer(self.seconds_to_expire, notify_answer, args = [self.room_id, clue.id])
+                _timer.start()
              
         return message
 
