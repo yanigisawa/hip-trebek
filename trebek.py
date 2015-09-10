@@ -25,9 +25,10 @@ _answer_match_ratio = "ANSWER_MATCH_RATIO"
 _secods_to_expire = "SECONDS_TO_EXPIRE"
 _redis_url = "REDIS_URL"
 _hipchat_auth_token = "HIPCHAT_AUTH_TOKEN"
+_unit_test = "UNIT_TEST"
 
 def notify_answer(room_id, clue_id):
-    url = "https://api.hipchat.com/v1/room/{0}/notification?auth_token={1}".format(
+    url = "https://api.hipchat.com/v1/rooms/message?auth_token={1}".format(
             room_id, os.environ.get(_hipchat_auth_token))
 
     key = Trebek.clue_key.format(room_id)
@@ -43,10 +44,11 @@ def notify_answer(room_id, clue_id):
             parameters = {}
             parameters['message'] = "The answer was: {0}".format(obj.answer)
             parameters['room_id'] = room_id
-            parameters['color'] = 'Gray'
+            parameters['color'] = 'gray'
+            parameters['from'] = 'Trebek'
             print("Post to: {0} - {1}".format(url, parameters))
-            resp = requests.post(url, data = parameters)
-            if resp.status_code != 204:
+            resp = requests.post(url, data = parameters, timeout=5)
+            if resp.status_code != 200:
                 print('failed to post message to hipchat')
     else:
         print('no redis key exists, do not notify')
@@ -141,8 +143,9 @@ class Trebek:
             pipe.set(key, json.dumps(clue, cls=entities.QuestionEncoder))
             pipe.setex(shush_key, 10, 'true')
             pipe.execute()
-            t = Timer(self.seconds_to_expire, notify_answer, args = [self.room_id, clue.id])
-            t.start()
+            if not os.environ.get(_unit_test):
+                t = Timer(self.seconds_to_expire, notify_answer, args = [self.room_id, clue.id])
+                t.start()
              
         return message
 
