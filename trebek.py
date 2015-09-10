@@ -240,7 +240,7 @@ class Trebek:
         return entities.Question(**req.json()[0])
 
     def response_is_a_question(self, response):
-        return re.match("^(what|whats|where|wheres|who|whos)", response.strip())
+        return re.match("^(what|whats|where|wheres|who|whos)", response.lower().strip())
 
     def is_correct_answer(self, expected, actual):
         expected = re.sub(r'[^\w\s]', "", expected, flags=re.I)
