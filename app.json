@@ -35,5 +35,9 @@
       "description": "The URL for redis the application can use to persist its data.",
       "required": true,
     }
+    "HIPCHAT_AUTH_TOKEN":{
+        "description" : "The HipChat APIv2 token. Requires Administer Room, and Send Notification permission",
+        "required" : true,
+    }
   }
 }

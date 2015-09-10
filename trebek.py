@@ -24,10 +24,11 @@ _board_limit = "BOARD_LIMIT"
 _answer_match_ratio = "ANSWER_MATCH_RATIO"
 _secods_to_expire = "SECONDS_TO_EXPIRE"
 _redis_url = "REDIS_URL"
+_hipchat_auth_token = "HIPCHAT_AUTH_TOKEN"
 
 def notify_answer(room_id, clue_id):
     url = "https://api.hipchat.com/v1/room/{0}/notification?auth_token={1}".format(
-            room_id, os.environ.get("HIPCHAT_AUTH_TOKEN"))
+            room_id, os.environ.get(_hipchat_auth_token))
 
     key = Trebek.clue_key.format(room_id)
     print("key: {0}".format(key))
