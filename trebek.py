@@ -180,28 +180,29 @@ class Trebek:
         user_answer_key = self.user_answer_key.format(self.room_id,
                 clue.id, self.room_message.item.message.user_from.id)
 
+        hipchat_user_name = self.room_message.item.message.user_from.name
         if self.redis.exists(user_answer_key):
             response = "You have already answered {0}. Let someone else respond.".format(
                     self.room_message.item.message.user_from.name)
         elif clue.expiration < time.time():
             if correct_answer:
-                response = "That is correct, however time is up."
+                response = "That is correct {0}, however time is up.".format(hipchat_user_name)
             else:
                 response = "Time is up! The correct answer was: `{0}`".format(clue.answer)
             self.mark_question_as_answered()
         elif self.response_is_a_question(user_answer) and correct_answer:
             score = self.update_score(clue.value)
-            response = "That is correct! Your score is now {0}".format(self.format_currency(score))
+            response = "That is correct, {0}. Your score is now {1}".format(hipchat_user_name, self.format_currency(score))
             self.mark_question_as_answered()
         elif correct_answer:
             score = self.update_score(-clue.value)
-            response = "That is correct, however responses should be in the form of a question. "
-            response += "Your score is now {0}".format(self.format_currency(score))
+            response = "That is correct {0}, however responses should be in the form of a question.".format(hipchat_user_name)
+            response += " Your score is now {0}".format(self.format_currency(score))
             clue.expiration = time.time() + self.seconds_to_expire
             self.redis.setex(user_answer_key, self.seconds_to_expire, 'true')
         else:
             score = self.update_score(-clue.value)
-            response = "That is incorrect. Your score is now {0}".format(self.format_currency(score))
+            response = "That is incorrect, {0}. Your score is now {1}".format(hipchat_user_name, self.format_currency(score))
             clue.expiration = time.time() + self.seconds_to_expire
             self.redis.setex(user_answer_key, self.seconds_to_expire, 'true')
 
