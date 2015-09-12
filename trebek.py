@@ -317,7 +317,8 @@ class Trebek:
         score = int(string_value)
         score_string = ""
         if score < 0:
-            score_string = "(${0})".format(format(abs(score), ','))
+            score_string = "<span style='color: red;'>-${0}</span>".format(
+                    format(abs(score), ','))
         else:
             score_string = "${0}".format(format(score, ','))
         return score_string # prefix + format(abs(int(string_value)), ',')
