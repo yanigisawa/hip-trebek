@@ -164,10 +164,10 @@ class TestTrebek(unittest.TestCase):
         self.assertEqual("$1,000,000,000", currency)
 
         currency = self.trebek_bot.format_currency("-100")
-        self.assertEqual("-$100", currency)
+        self.assertEqual("($100)", currency)
 
         currency = self.trebek_bot.format_currency("-1000000000")
-        self.assertEqual("-$1,000,000,000", currency)
+        self.assertEqual("($1,000,000,000)", currency)
 
 
     def test_user_requests_score_value_returned(self):
@@ -248,8 +248,8 @@ class TestTrebek(unittest.TestCase):
         bot.redis.flushdb()
 
         # Assert
-        self.assertEqual("-$200", bot.format_currency(score))
-        self.assertEqual("That is incorrect, James A. Your score is now -$200", response)
+        self.assertEqual("($200)", bot.format_currency(score))
+        self.assertEqual("That is incorrect, James A. Your score is now ($200)", response)
 
     def test_given_correct_answer_user_score_increased(self):
         # Arrange 
@@ -268,7 +268,7 @@ class TestTrebek(unittest.TestCase):
 
         # Assert
         self.assertEqual("$200", bot.format_currency(score))
-        self.assertEqual("That is correct, James A. Your score is now $200 (Let's Make a Deal)", response)
+        self.assertEqual("That is correct, James A. Your score is now $200 (Expected Answer: Let's Make a Deal)", response)
 
     def test_given_correct_answer_nonQuestion_form_user_score_decreased(self):
         # Arrange 
@@ -286,8 +286,8 @@ class TestTrebek(unittest.TestCase):
         bot.redis.flushdb()
 
         # Assert
-        self.assertEqual("-$200", bot.format_currency(score))
-        self.assertEqual("That is correct James A, however responses should be in the form of a question. Your score is now -$200", response)
+        self.assertEqual("($200)", bot.format_currency(score))
+        self.assertEqual("That is correct James A, however responses should be in the form of a question. Your score is now ($200)", response)
     
     def test_given_incorrect_answer_time_is_up_response(self):
         # Arrange 
@@ -333,7 +333,7 @@ class TestTrebek(unittest.TestCase):
 
         # Assert
         self.assertFalse(score)
-        self.assertEqual(response, "That is correct James A, however time is up. (Let's Make a Deal)")
+        self.assertEqual(response, "That is correct James A, however time is up. (Expected Answer: Let's Make a Deal)")
 
     def test_when_asked_for_answer_bot_responds_with_answer(self):
         d = self.get_setup_json()

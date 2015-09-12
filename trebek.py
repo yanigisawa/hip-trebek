@@ -183,13 +183,13 @@ class Trebek:
             response = "You have already answered {0}. Let someone else respond.".format(hipchat_user_name)
         elif clue.expiration < time.time():
             if correct_answer:
-                response = "That is correct {0}, however time is up. ({1})".format(hipchat_user_name, clue.answer)
+                response = "That is correct {0}, however time is up. (Expected Answer: {1})".format(hipchat_user_name, clue.answer)
             else:
                 response = "Time is up! The correct answer was: <b>{0}</b>".format(clue.answer)
             self.mark_question_as_answered()
         elif self.response_is_a_question(user_answer) and correct_answer:
             score = self.update_score(clue.value)
-            response = "That is correct, {0}. Your score is now {1} ({2})".format(
+            response = "That is correct, {0}. Your score is now {1} (Expected Answer: {2})".format(
                     hipchat_user_name, self.format_currency(score), clue.answer)
             self.mark_question_as_answered()
         elif correct_answer:
@@ -314,8 +314,13 @@ class Trebek:
             
     def format_currency(self, string_value):
         prefix = "$"
-        if int(string_value) < 0: prefix = "-$"
-        return prefix + format(abs(int(string_value)), ',')
+        score = int(string_value)
+        score_string = ""
+        if score < 0:
+            score_string = "(${0})".format(format(abs(score), ','))
+        else:
+            score_string = "${0}".format(format(score, ','))
+        return score_string # prefix + format(abs(int(string_value)), ',')
 
 
     # Funny quotes from SNL's Celebrity Jeopardy, to speak
