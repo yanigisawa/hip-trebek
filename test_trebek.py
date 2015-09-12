@@ -4,6 +4,7 @@ import json
 import trebek
 import entities
 import fakeredis
+import time
 
 # Reference this SO post on getting distances between strings:
 # http://stackoverflow.com/a/1471603/98562
@@ -89,18 +90,24 @@ class TestTrebek(unittest.TestCase):
 
     def test_fuzzy_matching_of_answer(self):
         test_clue = fake_fetch_random_clue()
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make a Deal")
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is let's make a deal")
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is Lets Make a Deal")
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make Deal")
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make a Dela")
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Mae a Deal")
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make a Deal")
-        assert self.trebek_bot.is_correct_answer(test_clue.answer, "what is elt's Make a Deal")
-        assert not self.trebek_bot.is_correct_answer(test_clue.answer, "Let's a Deal")
-        assert not self.trebek_bot.is_correct_answer(test_clue.answer, "Let's make ")
-        assert self.trebek_bot.is_correct_answer("a ukulele", "a ukelele")
-        assert self.trebek_bot.is_correct_answer("Scrabble", "Scrablle")
+        self.assertFalse(self.trebek_bot.is_correct_answer("polygamist", "polyamourus"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make a Deal"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is let's make a deal"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is Lets Make a Deal"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make Deal"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make a Dela"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Mae a Deal"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is Let's Make a Deal"))
+        self.assertTrue(self.trebek_bot.is_correct_answer(test_clue.answer, "what is elt's Make a Deal"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("a ukulele", "a ukelele"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("Scrabble", "Scrablle"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("(Aristotle) Onassis", "Onassis"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("(William) Blake", "blake"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("wings (or feathers)", "feathers"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("A.D. (Anno Domini)", "AD"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("(Little Orphan) Annie", "annie"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("a turtle (or a tortoise)", "turtle"))
+        self.assertTrue(self.trebek_bot.is_correct_answer("a turtle (or a tortoise)", "tortoise"))
 
     def test_given_json_dictionary_hipchat_object_is_parsed(self):
         with open ('test-room-message.json') as data:
@@ -242,7 +249,7 @@ class TestTrebek(unittest.TestCase):
 
         # Assert
         self.assertEqual("-$200", bot.format_currency(score))
-        self.assertEqual("That is incorrect. Your score is now -$200", response)
+        self.assertEqual("That is incorrect, James A. Your score is now -$200", response)
 
     def test_given_correct_answer_user_score_increased(self):
         # Arrange 
@@ -261,9 +268,9 @@ class TestTrebek(unittest.TestCase):
 
         # Assert
         self.assertEqual("$200", bot.format_currency(score))
-        self.assertEqual("That is correct! Your score is now $200", response)
+        self.assertEqual("That is correct, James A. Your score is now $200 (Let's Make a Deal)", response)
 
-    def test_given_correct_answer_nonQuestion_form_user_score_ddcreased(self):
+    def test_given_correct_answer_nonQuestion_form_user_score_decreased(self):
         # Arrange 
         d = self.get_setup_json()
         d['item']['message']['message'] = "/trebek Let's Make a deal"
@@ -280,8 +287,54 @@ class TestTrebek(unittest.TestCase):
 
         # Assert
         self.assertEqual("-$200", bot.format_currency(score))
-        self.assertEqual("That is correct, however responses should be in the form of a question. Your score is now -$200", response)
+        self.assertEqual("That is correct James A, however responses should be in the form of a question. Your score is now -$200", response)
     
+    def test_given_incorrect_answer_time_is_up_response(self):
+        # Arrange 
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek foobar"
+        bot = self.create_bot_with_dictionary(d)
+        bot.redis = fakeredis.FakeStrictRedis()
+        bot.get_question()
+        clue = bot.get_active_clue()
+        clue.expiration = time.time() - (bot.seconds_to_expire + 1)
+        key = bot.clue_key.format(bot.room_id)
+        bot.redis.set(key, json.dumps(clue, cls = entities.QuestionEncoder))
+        response = bot.get_response_message()
+        user_score_key = bot.user_score_key.format(
+                self.trebek_bot.room_message.item.message.user_from.id)
+
+        # Act
+        score = bot.redis.get(user_score_key)
+        bot.redis.flushdb()
+
+        # Assert
+        self.assertFalse(score)
+        self.assertEqual(response, "Time is up! The correct answer was: <b>Let's Make a Deal</b>")
+
+    def test_given_correct_answer_time_is_up_response(self):
+        # Arrange 
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek what is Let's Make a deal"
+        bot = self.create_bot_with_dictionary(d)
+        bot.redis = fakeredis.FakeStrictRedis()
+        bot.get_question()
+        clue = bot.get_active_clue()
+        clue.expiration = time.time() - (bot.seconds_to_expire + 1)
+        key = bot.clue_key.format(bot.room_id)
+        bot.redis.set(key, json.dumps(clue, cls = entities.QuestionEncoder))
+        response = bot.get_response_message()
+        user_score_key = bot.user_score_key.format(
+                self.trebek_bot.room_message.item.message.user_from.id)
+
+        # Act
+        score = bot.redis.get(user_score_key)
+        bot.redis.flushdb()
+
+        # Assert
+        self.assertFalse(score)
+        self.assertEqual(response, "That is correct James A, however time is up. (Let's Make a Deal)")
+
     def test_when_asked_for_answer_bot_responds_with_answer(self):
         d = self.get_setup_json()
         d['item']['message']['message'] = "/trebek answer"

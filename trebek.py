@@ -35,7 +35,6 @@ def notify_answer(room_id, clue_id):
             room_id, os.environ.get(_hipchat_auth_token))
 
     key = Trebek.clue_key.format(room_id)
-    print("key: {0}".format(key))
 
     uri = urlparse(os.environ.get(_redis_url))
     r = redis.StrictRedis(host = uri.hostname, 
@@ -50,7 +49,6 @@ def notify_answer(room_id, clue_id):
             parameters['room_id'] = room_id
             parameters['color'] = 'gray'
             parameters['from'] = 'Trebek'
-            print("Post to: {0} - {1}".format(url, parameters))
             resp = requests.post(url, data = parameters, timeout=5)
             if resp.status_code != 200:
                 print('failed to post message to hipchat')
@@ -145,7 +143,7 @@ class Trebek:
             
             pipe = self.redis.pipeline()
             pipe.set(key, json.dumps(clue, cls=entities.QuestionEncoder))
-            pipe.setex(shush_key, 10, 'true')
+            pipe.setex(shush_key, 5, 'true')
             pipe.execute()
             if not os.environ.get(_unit_test):
                 global _timer
@@ -182,17 +180,17 @@ class Trebek:
 
         hipchat_user_name = self.room_message.item.message.user_from.name
         if self.redis.exists(user_answer_key):
-            response = "You have already answered {0}. Let someone else respond.".format(
-                    self.room_message.item.message.user_from.name)
+            response = "You have already answered {0}. Let someone else respond.".format(hipchat_user_name)
         elif clue.expiration < time.time():
             if correct_answer:
-                response = "That is correct {0}, however time is up.".format(hipchat_user_name)
+                response = "That is correct {0}, however time is up. ({1})".format(hipchat_user_name, clue.answer)
             else:
-                response = "Time is up! The correct answer was: `{0}`".format(clue.answer)
+                response = "Time is up! The correct answer was: <b>{0}</b>".format(clue.answer)
             self.mark_question_as_answered()
         elif self.response_is_a_question(user_answer) and correct_answer:
             score = self.update_score(clue.value)
-            response = "That is correct, {0}. Your score is now {1}".format(hipchat_user_name, self.format_currency(score))
+            response = "That is correct, {0}. Your score is now {1} ({2})".format(
+                    hipchat_user_name, self.format_currency(score), clue.answer)
             self.mark_question_as_answered()
         elif correct_answer:
             score = self.update_score(-clue.value)
@@ -243,9 +241,19 @@ class Trebek:
     def response_is_a_question(self, response):
         return re.match("^(what|whats|where|wheres|who|whos)", response.lower().strip())
 
-    def is_correct_answer(self, expected, actual):
+    def clean_expected_answer(self, expected):
         expected = re.sub(r'[^\w\s]', "", expected, flags=re.I)
-        expected = re.sub(r'^(the|a|an) ', "", expected, flags=re.I)
+        expected = re.sub(r'^(the|a|an|or) ', "", expected, flags=re.I)
+        return expected.strip().lower()
+
+    def compare_answers(self, expected, actual):
+        seq = difflib.SequenceMatcher(a = expected, b = actual)
+        # print("Expected: {0} - Actual: {1} - Ratio: {2}".format(expected, actual, seq.ratio()))
+        return seq.ratio() >= self.answer_match_ratio
+
+    def is_correct_answer(self, expected, actual):
+        expected_orig = expected
+        expected = self.clean_expected_answer(expected)
         expected = expected.strip().lower()
 
         actual = re.sub(r'\s+(&nbsp;|&)\s+', " and ", actual, flags=re.I)
@@ -256,10 +264,21 @@ class Trebek:
         actual = re.sub(r'\?+$/', "", actual, flags=re.I) 
         actual = actual.strip().lower()
 
-        seq = difflib.SequenceMatcher(a = expected, b = actual)
+        is_correct = self.compare_answers(expected, actual)
+        if not is_correct:
+            # see unit tests for examples. Handles answers with "this (or that)" structure
+            parens_group = re.match(r"(.*)(\(.+\))(.*)", expected_orig)
+            if parens_group:
+                # if there is an alternate, compare alternate answer
+                if "or" in parens_group.group(2):
+                    expected = self.clean_expected_answer(parens_group.group(2))
+                    is_correct = self.compare_answers(expected, actual)
 
-        # print("Expected: {0} - Actual: {1} - Ratio: {2}".format(expected, actual, seq.ratio()))
-        return seq.ratio() >= self.answer_match_ratio
+                if not is_correct:
+                    expected = self.clean_expected_answer(expected_orig.replace(parens_group.group(2), ""))
+                    is_correct = self.compare_answers(expected, actual)
+
+        return is_correct
 
     def get_user_name(self, user_id):
         key = self.hipchat_user_key.format(user_id)
