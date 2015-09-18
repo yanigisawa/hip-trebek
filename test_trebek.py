@@ -8,18 +8,29 @@ import time
 
 # Reference this SO post on getting distances between strings:
 # http://stackoverflow.com/a/1471603/98562
+def get_clue_json():
+    with open('test-json-output.json') as json_data:
+        clue = json.load(json_data) 
+    return clue
+
 
 def fake_fetch_random_clue():
-    with open('test-json-output.json') as json_data:
-        clue = json.load(json_data) #, object_hook=_json_object_hook)
-    return entities.Question(**clue)
+    return entities.Question(**get_clue_json())
 
-_count = 0
+_fetch_count = 0
+_invalid_clue = None
+
+def fetch_invalid_clue():
+    global _fetch_count, _invalid_clue
+    clue = get_clue_json()
+    if _fetch_count == 0:
+        clue = _invalid_clue
+        _fetch_count += 1
+    return entities.Question(**clue)
 
 class TestTrebek(unittest.TestCase):
     def setUp(self):
-        with open ('test-room-message.json') as data:
-            d = json.load(data)
+        d = self.get_setup_json()
         self.room_message = entities.HipChatRoomMessage(**d)
         self.trebek_bot = trebek.Trebek(self.room_message)
         self.trebek_bot.redis = fakeredis.FakeStrictRedis()
@@ -108,6 +119,7 @@ class TestTrebek(unittest.TestCase):
         self.assertTrue(self.trebek_bot.is_correct_answer("(Little Orphan) Annie", "annie"))
         self.assertTrue(self.trebek_bot.is_correct_answer("a turtle (or a tortoise)", "turtle"))
         self.assertTrue(self.trebek_bot.is_correct_answer("a turtle (or a tortoise)", "tortoise"))
+        # self.assertTrue(self.trebek_bot.is_correct_answer("ben affleck and matt damon", "Matt Damon & Ben Affleck"))
 
     def test_given_json_dictionary_hipchat_object_is_parsed(self):
         with open ('test-room-message.json') as data:
@@ -164,10 +176,10 @@ class TestTrebek(unittest.TestCase):
         self.assertEqual("$1,000,000,000", currency)
 
         currency = self.trebek_bot.format_currency("-100")
-        self.assertEqual("($100)", currency)
+        self.assertEqual("<span style='color: red;'>-$100</span>", currency)
 
         currency = self.trebek_bot.format_currency("-1000000000")
-        self.assertEqual("($1,000,000,000)", currency)
+        self.assertEqual("<span style='color: red;'>-$1,000,000,000</span>", currency)
 
 
     def test_user_requests_score_value_returned(self):
@@ -248,8 +260,9 @@ class TestTrebek(unittest.TestCase):
         bot.redis.flushdb()
 
         # Assert
-        self.assertEqual("($200)", bot.format_currency(score))
-        self.assertEqual("That is incorrect, James A. Your score is now ($200)", response)
+        score_string = "<span style='color: red;'>-$200</span>"
+        self.assertEqual(score_string, bot.format_currency(score))
+        self.assertEqual("That is incorrect, James A. Your score is now {0}".format(score_string), response)
 
     def test_given_correct_answer_user_score_increased(self):
         # Arrange 
@@ -286,8 +299,9 @@ class TestTrebek(unittest.TestCase):
         bot.redis.flushdb()
 
         # Assert
-        self.assertEqual("($200)", bot.format_currency(score))
-        self.assertEqual("That is correct James A, however responses should be in the form of a question. Your score is now ($200)", response)
+        score_string = "<span style='color: red;'>-$200</span>"
+        self.assertEqual(score_string, bot.format_currency(score))
+        self.assertEqual("That is correct James A, however responses should be in the form of a question. Your score is now {0}".format(score_string), response)
     
     def test_given_incorrect_answer_time_is_up_response(self):
         # Arrange 
@@ -367,19 +381,47 @@ class TestTrebek(unittest.TestCase):
         self.assertEqual("Theodore Roosevelt", q.answer)
 
     def test_when_fetched_clue_is_invalid_get_new_clue(self):
-        def tmp_fake_fetch_clue():
-            global _count
-            with open('test-json-output.json') as json_data:
-                clue = json.load(json_data) #, object_hook=_json_object_hook)
-            if _count == 0:
-                clue['invalid_count'] = 1
-                _count += 1
-            return entities.Question(**clue)
-
-        self.trebek_bot.fetch_random_clue = tmp_fake_fetch_clue
+        global _invalid_clue, _fetch_count
+        _fetch_count = 0
+        clue = get_clue_json()
+        clue['invalid_count'] = 1
+        _invalid_clue = clue
+        self.trebek_bot.fetch_random_clue = fetch_invalid_clue
         clue = self.trebek_bot.get_jeopardy_clue()
         self.assertEqual(clue.invalid_count, None)
 
+    def test_when_fetched_clue_is_missing_question_get_new_clue(self):
+        global _fetch_count, _invalid_clue
+        _fetch_count = 0
+        clue = get_clue_json()
+        clue['question'] = ""
+        _invalid_clue = clue
+
+        self.trebek_bot.fetch_random_clue = fetch_invalid_clue
+        clue = self.trebek_bot.get_jeopardy_clue()
+        self.assertNotEqual(clue.question.strip(), "")
+
+    def test_when_fetched_clue_contains_visual_clue_request_new_clue(self):
+        global _fetch_count, _invalid_clue
+        _fetch_count = 0
+        clue = get_clue_json()
+        clue['question'] = "the picture seen here, contains some test data"
+        _invalid_clue = clue
+
+        self.trebek_bot.fetch_random_clue = fetch_invalid_clue
+        clue = self.trebek_bot.get_jeopardy_clue()
+        self.assertFalse("seen here" in clue.question)
+
+    def test_when_fetched_clue_contains_audio_clue_request_new_clue(self):
+        global _fetch_count, _invalid_clue
+        _fetch_count = 0
+        clue = get_clue_json()
+        clue['question'] = "the audio heard here, contains some test data"
+        _invalid_clue = clue
+
+        self.trebek_bot.fetch_random_clue = fetch_invalid_clue
+        clue = self.trebek_bot.get_jeopardy_clue()
+        self.assertFalse("heard here" in clue.question)
 
 def main():
     unittest.main()
