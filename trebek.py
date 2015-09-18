@@ -226,10 +226,20 @@ class Trebek:
     def get_jeopardy_clue(self):
         key = self.clue_key.format(self.room_id)
         clue = self.fetch_random_clue()
-        while clue.invalid_count != None: 
+        while not self.is_valid_clue(clue):
             clue = self.fetch_random_clue()
         clue.expiration = time.time() + self.seconds_to_expire
         return clue
+
+    def is_valid_clue(self, clue):
+        valid = clue.invalid_count == None and clue.question.strip() != ""
+        if valid:
+            valid = "seen here" not in clue.question.lower()
+
+        if valid:
+            valid = "heard here" not in clue.question.lower()
+
+        return valid
 
     def fetch_random_clue(self):
         url = "http://jservice.io/api/random?count=1"
@@ -248,7 +258,7 @@ class Trebek:
 
     def compare_answers(self, expected, actual):
         seq = difflib.SequenceMatcher(a = expected, b = actual)
-        # print("Expected: {0} - Actual: {1} - Ratio: {2}".format(expected, actual, seq.ratio()))
+        print("Expected: {0} - Actual: {1} - Ratio: {2}".format(expected, actual, seq.ratio()))
         return seq.ratio() >= self.answer_match_ratio
 
     def is_correct_answer(self, expected, actual):
