@@ -13,7 +13,6 @@ def get_clue_json():
         clue = json.load(json_data) 
     return clue
 
-
 def fake_fetch_random_clue():
     return entities.Question(**get_clue_json())
 
@@ -221,7 +220,7 @@ class TestTrebek(unittest.TestCase):
         
     def test_jeopardy_round_can_start_from_nothing(self):
         response = self.trebek_bot.get_response_message()
-        expected = "The category is <b>CLASSIC GAME SHOW TAGLINES</b> for $200: "
+        expected = "(Air Date: 18-Oct-2001) - The category is <b>CLASSIC GAME SHOW TAGLINES</b> for $200: "
         expected += "<b>\"CAVEAT EMPTOR.  LET THE BUYER BEWARE\"</b>"
                 
         self.assertEqual(expected, response)

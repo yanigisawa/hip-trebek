@@ -1,6 +1,8 @@
 import re 
 import bs4
 import json
+from datetime import datetime
+from dateutil import parser
 
 class HipChatUser(object):
     def __init__(self, id = None, name = None, created = None,
@@ -30,7 +32,9 @@ class Question(object):
         if value is None or value == "":
             value = 200
         self.value = value
-        self.airdate = airdate
+        if airdate == None:
+            airdate = "9/10/1984" # First airdate of Jeopardy!
+        self.airdate = parser.parse(airdate)
         self.created_at = created_at
         self.updated_at = updated_at
         self.category_id = category_id
@@ -45,6 +49,9 @@ class QuestionEncoder(json.JSONEncoder):
         #     return super(QuestionEncoder, self).default(obj)
         # elif not isinstance(obj, Category):
         #     return super(QuestionEncoder, self).default(obj)
+
+        if isinstance(obj, datetime):
+            return obj.isoformat()
 
         return obj.__dict__
 

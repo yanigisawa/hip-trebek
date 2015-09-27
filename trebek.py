@@ -138,8 +138,9 @@ class Trebek:
                 active_clue = self.get_active_clue()
                 message = "The answer was: <b>{0}</b><br/>".format(active_clue.answer)
             clue = self.get_jeopardy_clue()
-            message += "The category is <b>{0}</b> for {1}: <b>{2}</b>".format(clue.category.title.upper(), 
-                    self.format_currency(clue.value), clue.question.upper())
+            message += "(Air Date: {3:%d-%b-%Y}) - The category is <b>{0}</b> for {1}: <b>{2}</b>".format(
+                    clue.category.title.upper(), self.format_currency(clue.value), clue.question.upper(),
+                    clue.airdate)
             
             pipe = self.redis.pipeline()
             pipe.set(key, json.dumps(clue, cls=entities.QuestionEncoder))
@@ -380,10 +381,11 @@ class Trebek:
             "Welcome back to HipChat Jeopardy! I want to apologize to everyone watching before the break, and want to assure you that all three contestants are wearing pants.",
             "Let's take a look at the board. The categories are: Continents, Theatre, Potpourri, Potent Potables, Numbers, Words that Rhyme with Dog, and finally, the Renaissance. And you know what, let's just change that last category, to Shapes."
             "Now let's take a look at the categories for final Jeopardy! `Potent Potables, `Drummers Named Ringo`, `States that begin with 'Californ'`, `Richard Nixon`, `The number after 2`, `Famous Kareem Abdul-Jabbars`, and finally: `Don't Do Anything`"
+            "{0}, apparently doing Tai Chi over there."
         ]
 
         import random
-        return random.sample(quotes, 1)[0]
+        return random.sample(quotes, 1)[0].format(self.room_message.item.message.user_from.name)
 
     def get_help(self):
         return """<ul>
