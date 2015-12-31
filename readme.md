@@ -25,8 +25,11 @@ If you'd rather do it manually, then just clone this repo, set up a Heroku app w
 * `/trebek jeopardy`: starts a round of Jeopardy! hip-trebek will pick a category and score for you.
 * `/trebek what/who is/are [answer]`: sends an answer. Remember, responses must be in the form of a question!
 * `/trebek score`: shows your current score.
-* `/trebek leaderboard`: shows the current top scores.
-* `/trebek loserboard`: shows the current bottom scores.
+* `/trebek score`: shows your score for the current month.
+* `/trebek leaderboard`: shows the current month's top scores.
+* `/trebek loserboard`: shows the current month's bottom scores.
+* `/trebek lifetime leaderboard`: shows the all-time top scores.
+* `/trebek lifetime loserboard`: shows the all-time bottom scores.
 * `/trebek answer`: displays the answer to the previous question without starting a new round
 * `/trebek invalid`: submits the active question as invalid to [jservice.](http://jservice.io/) Use this if the clue requires visual or audio clues not available in chat.
 * `/trebek help`: shows this help information.

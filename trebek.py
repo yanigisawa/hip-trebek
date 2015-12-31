@@ -10,12 +10,16 @@ from bottle import route, run, template, request, response
 from urllib.parse import urlparse
 import os 
 from threading import Timer
+from datetime import datetime
 
 # trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.
 # trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!
-# trebek score: shows your current score.
-# trebek leaderboard: shows the current top scores.
-# trebek loserboard: shows the current bottom scores.
+# trebek score: shows your score for the current month.
+# trebek lifetime score: shows your all-time score.
+# trebek leaderboard: shows the current month's top scores.
+# trebek loserboard: shows the current month's bottom scores.
+# trebek lifetime leaderboard: shows the all-time top scores.
+# trebek lifetime loserboard: shows the all-time bottom scores.
 # trebek help: shows this help information.
 
 # Environment Variable Keys
@@ -58,9 +62,7 @@ def notify_answer(room_id, clue_id):
 class Trebek:
     clue_key = "activeClue:{0}"
     hipchat_user_key = "hipchat_user:{0}"
-    user_score_key = "user_score:{0}"
-    user_score_scan_key = "user_score:*"
-    user_score_regex_key = "user_score:"
+    user_score_prefix_base = "user_score"
     shush_key = "shush:{0}"
     shush_answer_key = "shush:answer:{0}"
     user_answer_key = "user_answer:{0}:{1}:{2}"
@@ -68,12 +70,20 @@ class Trebek:
     answer_match_ratio = float(os.environ.get(_answer_match_ratio))
     seconds_to_expire = int(os.environ.get(_secods_to_expire))
 
+    @property
+    def user_score_prefix(self):
+        return "{0}-{1}".format(self.get_year_month(), self.user_score_prefix_base)
+
     def __init__(self, room_message = None):
         uri = urlparse(os.environ.get(_redis_url))
         self.redis = redis.StrictRedis(host = uri.hostname, 
                 port = uri.port, password = uri.password)
         self.room_message = room_message
         self.room_id = self.room_message.item.room.room_id
+
+    def get_year_month(self):
+        now = datetime.now()
+        return "{0}-{1}".format(now.year, str(now.month).zfill(2))
 
     def get_active_clue(self):
         key = self.clue_key.format(self.room_id)
@@ -87,16 +97,23 @@ class Trebek:
     def get_response_message(self):
         cmd = self.room_message.item.message.message
         self.save_hipchat_user()
+        print("cmd - {0}".format(cmd))
         if re.match('^jeopardy*', cmd):
             response = self.get_question()
+        elif re.match('^lifetime score$', cmd):
+            response = self.get_user_score(lifetime = True)
         elif re.match('^score$', cmd):
             response = self.get_user_score()
         elif re.match('^help$', cmd):
             response = self.get_help()
         elif re.match('^answer$', cmd):
             response = self.get_answer()
+        elif re.match('^(show\s+)?(me\s+)?(the\s+)?(lifetime\s+)leaderboard$', cmd):
+            response = self.get_leaderboard(lifetime = True)
         elif re.match('^(show\s+)?(me\s+)?(the\s+)?leaderboard$', cmd):
             response = self.get_leaderboard()
+        elif re.match('^(show\s+)?(me\s+)?(the\s+)?(lifetime\s+)loserboard$', cmd):
+            response = self.get_loserboard(lifetime = True)
         elif re.match('^(show\s+)?(me\s+)?(the\s+)?loserboard$', cmd):
             response = self.get_loserboard()
         elif re.match('^invalid', cmd):
@@ -116,12 +133,14 @@ class Trebek:
 
         return response
 
-    def get_user_score(self):
-        key = self.user_score_key.format(self.room_message.item.message.user_from.id)
-        if self.redis.exists(key):
-            score = int(self.redis.get(key).decode())
-        else:
-            score = 0
+    def get_user_score(self, lifetime = False):
+        pattern = "*{0}:{1}".format(
+                self.user_score_prefix_base if lifetime else self.user_score_prefix, 
+                self.room_message.item.message.user_from.id)
+        score = 0
+        for score_key in self.redis.scan_iter(match = pattern):
+            score += int(self.redis.get(score_key).decode())
+        
         return self.format_currency(score)
 
     def save_hipchat_user(self):
@@ -215,7 +234,7 @@ class Trebek:
         pipe.execute()
 
     def update_score(self, score = 0):
-        key = self.user_score_key.format(self.room_message.item.message.user_from.id)
+        key = "{0}:{1}".format(self.user_score_prefix, self.room_message.item.message.user_from.id)
         old_score = 0
         if self.redis.exists(key):
             old_score = int(self.redis.get(key))
@@ -295,23 +314,27 @@ class Trebek:
         key = self.hipchat_user_key.format(user_id)
         return self.redis.get(key).decode()
 
-    def get_loserboard(self):
-        losers = {}
-        for score_key in self.redis.scan_iter(match=self.user_score_scan_key):
-            user_id = re.sub(self.user_score_regex_key, '', score_key.decode())
-            losers[user_id] = self.redis.get(score_key).decode()
+    def get_scores(self, lifetime = False):
+        scores = {}
+        pattern = "*{0}:*".format(
+                self.user_score_prefix_base if lifetime else self.user_score_prefix)
 
+        for score_key in self.redis.scan_iter(match=pattern):
+            user_id = score_key.decode().split(':')[1]
+            previous_score = 0
+            if user_id in scores.keys():
+                previous_score = scores[user_id]
+            scores[user_id] = int(self.redis.get(score_key).decode()) + previous_score
+
+        return scores
+
+    def get_loserboard(self, lifetime = False):
         loser_board = ""
-        sorted_losers = sorted(losers.items(), key=lambda x: int(x[1]))
+        sorted_losers = sorted(self.get_scores(lifetime).items(), key=lambda x: int(x[1]))
         return self.get_formatted_board(sorted_losers)
 
-    def get_leaderboard(self):
-        leaders = {}
-        for score_key in self.redis.scan_iter(match=self.user_score_scan_key):
-            user_id = re.sub(self.user_score_regex_key, '', score_key.decode())
-            leaders[user_id] = self.redis.get(score_key).decode()
-
-        sorted_leaders = sorted(leaders.items(), reverse = True, key=lambda x: int(x[1]))
+    def get_leaderboard(self, lifetime = False):
+        sorted_leaders = sorted(self.get_scores(lifetime).items(), reverse = True, key=lambda x: int(x[1]))
         return self.get_formatted_board(sorted_leaders)
 
     def get_formatted_board(self, sorted_board):
@@ -391,9 +414,12 @@ class Trebek:
         return """<ul>
 <li>/trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.</li>
 <li>/trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!</li>
-<li>/trebek score: shows your current score.</li>
-<li>/trebek leaderboard: shows the current top scores.</li>
-<li>/trebek loserboard: shows the current bottom scores.</li>
+<li>/trebek score: shows your score for the current month.</li>
+<li>/trebek lifetime score: shows your all-time score.</li>
+<li>/trebek leaderboard: shows the current month's top scores.</li>
+<li>/trebek loserboard: shows the current month's bottom scores.</li>
+<li>/trebek lifetime leaderboard: shows the all-time top scores.</li>
+<li>/trebek lifetime loserboard: shows the all-time bottom scores.</li>
 <li>/trebek answer: shows the answer to the previous round.</li>
 <li>/trebek invalid: submits the active question as invalid to the underlying jservice. See http://jservice.io for more information</li>
 <li>/trebek help: shows this help information.</li>

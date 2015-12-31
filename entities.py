@@ -82,5 +82,8 @@ class HipChatRoomMessage(object):
         self.oauth_client_id = oauth_client_id
         self.webhook_id = webhook_id
 
+    def __repr__(self):
+        return self.item.message.message
+
 
 

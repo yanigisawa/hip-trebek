@@ -5,6 +5,7 @@ import trebek
 import entities
 import fakeredis
 import time
+import datetime
 
 # Reference this SO post on getting distances between strings:
 # http://stackoverflow.com/a/1471603/98562
@@ -15,6 +16,15 @@ def get_clue_json():
 
 def fake_fetch_random_clue():
     return entities.Question(**get_clue_json())
+
+def fake_get_year_month():
+    now = datetime.datetime.now()
+    year, month = divmod(now.month + 1, 12)
+    if month == 0: 
+        month = 12
+        year = year -1
+    next_month = datetime.datetime(now.year + year, month, 1)
+    return "{0}-{1}".format(next_month.year, str(next_month.month).zfill(2))
 
 _fetch_count = 0
 _invalid_clue = None
@@ -31,9 +41,10 @@ class TestTrebek(unittest.TestCase):
     def setUp(self):
         d = self.get_setup_json()
         self.room_message = entities.HipChatRoomMessage(**d)
-        self.trebek_bot = trebek.Trebek(self.room_message)
-        self.trebek_bot.redis = fakeredis.FakeStrictRedis()
-        self.trebek_bot.fetch_random_clue = fake_fetch_random_clue
+        self.trebek_bot = self.create_bot_with_dictionary(d)
+
+    def tearDown(self):
+        self.trebek_bot.redis.flushall() 
 
     def get_setup_json(self):
         with open('test-room-message.json') as data:
@@ -51,6 +62,7 @@ class TestTrebek(unittest.TestCase):
             r = bot.redis
         else:
             r = self.trebek_bot.redis
+            bot = self.trebek_bot
         hipchat = trebek.Trebek.hipchat_user_key
         r.set(hipchat.format(1), 'Aaron')
         r.set(hipchat.format(2), 'Allen')
@@ -65,7 +77,25 @@ class TestTrebek(unittest.TestCase):
         r.set(hipchat.format(11), 'Alex')
         r.set(hipchat.format(12), 'Michael')
         r.set(hipchat.format(13), 'Reggie')
-        user = trebek.Trebek.user_score_key
+        r.set(hipchat.format(14), 'Legacy Score')
+        user = bot.user_score_prefix + ":{0}"
+        r.set(user.format(1), 100)
+        r.set(user.format(2), 20)
+        r.set(user.format(3), 70)
+        r.set(user.format(4), 50)
+        r.set(user.format(5), 30)
+        r.set(user.format(6), 200)
+        r.set(user.format(7), 500)
+        r.set(user.format(8), 5430)
+        r.set(user.format(9), 412)
+        r.set(user.format(10), 123)
+        r.set(user.format(11), 225) 
+        r.set(user.format(12), 94)
+        r.set(user.format(13), 87)
+        # Regression test old score keys will still appear in lifetime loserboard
+        r.set("user_score:{0}".format(14), 5)
+        bot.get_year_month = fake_get_year_month
+        user = bot.user_score_prefix + ":{0}"
         r.set(user.format(1), 100)
         r.set(user.format(2), 20)
         r.set(user.format(3), 70)
@@ -180,12 +210,12 @@ class TestTrebek(unittest.TestCase):
         currency = self.trebek_bot.format_currency("-1000000000")
         self.assertEqual("<span style='color: red;'>-$1,000,000,000</span>", currency)
 
-
     def test_user_requests_score_value_returned(self):
         d = self.get_setup_json()
         d['item']['message']['message'] = "/trebek score"
         bot = self.create_bot_with_dictionary(d)
-        key = trebek.Trebek.user_score_key.format(bot.room_message.item.message.user_from.id)
+        key = "{0}:{1}".format(bot.user_score_prefix,
+                bot.room_message.item.message.user_from.id)
         bot.redis.set(key, 500)
         response = bot.get_response_message()
         self.assertEqual("$500", response)
@@ -232,6 +262,7 @@ class TestTrebek(unittest.TestCase):
         user_answer_key = trebek.Trebek.user_answer_key.format(
                 self.trebek_bot.room_id, clue.id, d['item']['message']['from']['id'])
         self.trebek_bot.redis.set(user_answer_key, 'true')
+        self.trebek_bot.get_question()
         d['item']['message']['message'] = '/trebek this is an answer'
 
         bot = self.create_bot_with_dictionary(d)
@@ -251,7 +282,7 @@ class TestTrebek(unittest.TestCase):
         bot.redis = fakeredis.FakeStrictRedis()
         bot.get_question()
         response = bot.get_response_message()
-        user_score_key = bot.user_score_key.format(
+        user_score_key = "{0}:{1}".format(bot.user_score_prefix,
                 self.trebek_bot.room_message.item.message.user_from.id)
 
         # Act
@@ -271,7 +302,7 @@ class TestTrebek(unittest.TestCase):
         bot.redis = fakeredis.FakeStrictRedis()
         bot.get_question()
         response = bot.get_response_message()
-        user_score_key = bot.user_score_key.format(
+        user_score_key = "{0}:{1}".format(bot.user_score_prefix,
                 self.trebek_bot.room_message.item.message.user_from.id)
 
         # Act
@@ -290,7 +321,7 @@ class TestTrebek(unittest.TestCase):
         bot.redis = fakeredis.FakeStrictRedis()
         bot.get_question()
         response = bot.get_response_message()
-        user_score_key = bot.user_score_key.format(
+        user_score_key = "{0}:{1}".format(bot.user_score_prefix,
                 self.trebek_bot.room_message.item.message.user_from.id)
 
         # Act
@@ -314,7 +345,7 @@ class TestTrebek(unittest.TestCase):
         key = bot.clue_key.format(bot.room_id)
         bot.redis.set(key, json.dumps(clue, cls = entities.QuestionEncoder))
         response = bot.get_response_message()
-        user_score_key = bot.user_score_key.format(
+        user_score_key = "{0}:{1}".format(bot.user_score_prefix,
                 self.trebek_bot.room_message.item.message.user_from.id)
 
         # Act
@@ -337,7 +368,7 @@ class TestTrebek(unittest.TestCase):
         key = bot.clue_key.format(bot.room_id)
         bot.redis.set(key, json.dumps(clue, cls = entities.QuestionEncoder))
         response = bot.get_response_message()
-        user_score_key = bot.user_score_key.format(
+        user_score_key = "{0}:{1}".format(bot.user_score_prefix,
                 self.trebek_bot.room_message.item.message.user_from.id)
 
         # Act
@@ -350,12 +381,13 @@ class TestTrebek(unittest.TestCase):
 
     def test_when_asked_for_answer_bot_responds_with_answer(self):
         d = self.get_setup_json()
+        bot = self.create_bot_with_dictionary(d)
+        bot.get_question()
         d['item']['message']['message'] = "/trebek answer"
         bot = self.create_bot_with_dictionary(d)
         response = bot.get_response_message()
 
         self.assertEqual("The answer was: Let's Make a Deal", response)
-
 
     def test_when_no_question_exists_answer_returns_no_active_clue(self):
         d = self.get_setup_json()
@@ -421,6 +453,49 @@ class TestTrebek(unittest.TestCase):
         self.trebek_bot.fetch_random_clue = fetch_invalid_clue
         clue = self.trebek_bot.get_jeopardy_clue()
         self.assertFalse("heard here" in clue.question)
+
+    def test_when_new_month_arrives_score_resets_to_zero(self):
+        self.trebek_bot.update_score(200)
+
+        self.trebek_bot.get_year_month = fake_get_year_month
+        self.assertEqual("$0", self.trebek_bot.get_user_score())
+
+    def test_lifetimescore_includes_multiple_months(self):
+        # Seed other user's data (to reproduce bug)
+        self.create_user_scores() 
+        self.trebek_bot.update_score(200)
+
+        self.trebek_bot.get_year_month = fake_get_year_month
+        self.trebek_bot.update_score(200)
+        self.assertEqual("$400", self.trebek_bot.get_user_score(True))
+
+    def test_user_lifetime_loserboard_value_includes_multiple_months(self):
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek show me the lifetime loserboard"
+        bot = self.create_bot_with_dictionary(d)
+        self.create_user_scores(bot)
+        response = bot.get_response_message()
+
+        expected =  "<ol><li>Legacy Score: $5</li>"
+        expected += "<li>Allen: $40</li>"
+        expected += "<li>Mark: $60</li>"
+        expected += "<li>Melvin: $100</li>"
+        expected += "<li>Cordarrell: $140</li></ol>"
+        self.assertEqual(expected, response)
+
+    def test_user_lifetime_leaderboard_value_returned(self):
+        d = self.get_setup_json()
+        d['item']['message']['message'] = "/trebek lifetime leaderboard"
+        bot = self.create_bot_with_dictionary(d)
+        self.create_user_scores(bot)
+        response = bot.get_response_message()
+
+        expected =  "<ol><li>Arian: $10,860</li>"
+        expected += "<li>Darren S: $1,000</li>"
+        expected += "<li>Zach: $824</li>"
+        expected += "<li>Alex: $450</li>"
+        expected += "<li>Richard: $400</li></ol>"
+        self.assertEqual(expected, response)
 
 def main():
     unittest.main()
