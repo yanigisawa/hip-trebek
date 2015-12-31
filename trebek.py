@@ -338,12 +338,16 @@ class Trebek:
         return self.get_formatted_board(sorted_leaders)
 
     def get_formatted_board(self, sorted_board):
+        if len(sorted_board) = 0:
+            return "No results for current month"
+
         board = "<ol>"
         for i, user in enumerate(sorted_board):
             board += '<li>{0}: {1}</li>'.format(self.get_user_name(user[0]), self.format_currency(user[1]))
             if i + 1 >= self.board_limit: break
 
         board += "</ol>"
+
         return board
             
     def format_currency(self, string_value):
@@ -356,7 +360,6 @@ class Trebek:
         else:
             score_string = "${0}".format(format(score, ','))
         return score_string # prefix + format(abs(int(string_value)), ',')
-
 
     # Funny quotes from SNL's Celebrity Jeopardy, to speak
     # when someone invokes trebekbot and there's no active round.
