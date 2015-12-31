@@ -338,7 +338,7 @@ class Trebek:
         return self.get_formatted_board(sorted_leaders)
 
     def get_formatted_board(self, sorted_board):
-        if len(sorted_board) = 0:
+        if len(sorted_board) == 0:
             return "No results for current month"
 
         board = "<ol>"
