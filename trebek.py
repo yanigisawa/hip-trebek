@@ -329,13 +329,24 @@ class Trebek:
         return scores
 
     def get_loserboard(self, lifetime = False):
-        loser_board = ""
         sorted_losers = sorted(self.get_scores(lifetime).items(), key=lambda x: int(x[1]))
-        return self.get_formatted_board(sorted_losers)
+        loserboard = ""
+        if not lifetime:
+            year, month = [int(x) for x in self.get_year_month().split('-')]
+            dt = datetime(year, month, 1)
+            loserboard = "<p>Loserboard for {0} {1}:</p>".format(dt.strftime("%B"), year)
+        loserboard += self.get_formatted_board(sorted_losers)
+        return loserboard
 
     def get_leaderboard(self, lifetime = False):
         sorted_leaders = sorted(self.get_scores(lifetime).items(), reverse = True, key=lambda x: int(x[1]))
-        return self.get_formatted_board(sorted_leaders)
+        leaderboard = ""
+        if not lifetime:
+            year, month = [int(x) for x in self.get_year_month().split('-')]
+            dt = datetime(year, month, 1)
+            leaderboard = "<p>Leaderboard for {0} {1}:</p>".format(dt.strftime("%B"), year)
+        leaderboard += self.get_formatted_board(sorted_leaders)
+        return leaderboard
 
     def get_formatted_board(self, sorted_board):
         if len(sorted_board) == 0:

@@ -172,28 +172,6 @@ class TestTrebek(unittest.TestCase):
         user_name = self.trebek_bot.redis.get(trebek.Trebek.hipchat_user_key.format('582174')).decode()
         self.assertEqual("James A", user_name)
 
-    def test_leaderboard_returns_scores_in_order(self):
-        self.create_user_scores()
-        expected =  "<ol><li>Arian: $5,430</li>"
-        expected += "<li>Darren S: $500</li>"
-        expected += "<li>Zach: $412</li>"
-        expected += "<li>Alex: $225</li>"
-        expected += "<li>Richard: $200</li></ol>"
-
-        actual = self.trebek_bot.get_leaderboard()
-        self.assertEqual(expected, actual)
-
-    def test_loserboard_returns_scores_in_reverse_order(self):
-        self.create_user_scores()
-        expected =  "<ol><li>Allen: $20</li>"
-        expected += "<li>Mark: $30</li>"
-        expected += "<li>Melvin: $50</li>"
-        expected += "<li>Cordarrell: $70</li>"
-        expected += "<li>Reggie: $87</li></ol>"
-
-        actual = self.trebek_bot.get_loserboard()
-        self.assertEqual(expected, actual)
-
     def test_number_is_formatted_as_currency(self):
         currency = self.trebek_bot.format_currency("100")
         self.assertEqual("$100", currency)
@@ -227,7 +205,10 @@ class TestTrebek(unittest.TestCase):
         self.create_user_scores(bot)
         response = bot.get_response_message()
 
-        expected =  "<ol><li>Arian: $5,430</li>"
+        year, month = [int(x) for x in bot.get_year_month().split('-')]
+        dt = datetime.datetime(year, month, 1)
+        expected = "<p>Leaderboard for {0} {1}:</p>".format(dt.strftime("%B"), dt.year)
+        expected += "<ol><li>Arian: $5,430</li>"
         expected += "<li>Darren S: $500</li>"
         expected += "<li>Zach: $412</li>"
         expected += "<li>Alex: $225</li>"
@@ -241,7 +222,10 @@ class TestTrebek(unittest.TestCase):
         self.create_user_scores(bot)
         response = bot.get_response_message()
 
-        expected =  "<ol><li>Allen: $20</li>"
+        year, month = [int(x) for x in bot.get_year_month().split('-')]
+        dt = datetime.datetime(year, month, 1)
+        expected = "<p>Loserboard for {0} {1}:</p>".format(dt.strftime("%B"), dt.year)
+        expected +=  "<ol><li>Allen: $20</li>"
         expected += "<li>Mark: $30</li>"
         expected += "<li>Melvin: $50</li>"
         expected += "<li>Cordarrell: $70</li>"
