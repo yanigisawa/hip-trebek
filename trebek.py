@@ -167,7 +167,7 @@ class Trebek:
             pipe.execute()
             if not os.environ.get(_unit_test):
                 global _timer
-                _timer = Timer(self.seconds_to_expire, notify_answer, args = [self.room_id, clue.id])
+                _timer = Timer(self.seconds_to_expire + 5, notify_answer, args = [self.room_id, clue.id])
                 _timer.start()
              
         return message
