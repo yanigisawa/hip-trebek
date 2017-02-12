@@ -85,5 +85,60 @@ class HipChatRoomMessage(object):
     def __repr__(self):
         return self.item.message.message
 
+class SlackMessage(object):
+    """ Example Json passed to Class:
+    token=gIkuvaNzQIHg97ATvDxqgjtO
+    team_id=T0001
+    team_domain=example
+    channel_id=C2147483705
+    channel_name=test
+    user_id=U2147483697
+    user_name=Steve
+    command=/weather
+    text=94070
+    response_url=https://hooks.slack.com/commands/1234/5678
+    """
 
+    def __init__(self, *slack_json, **kwargs):
+        for dictionary in slack_json:
+            for key in dictionary.keys():
+                setattr(self, key, dictionary[key])
+
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+
+class TrebekMessage(object):
+    # message = None
+    # user_id = None
+    # room_id = None
+    # user_name = None
+
+    def __init__(self, *slack_json, **kwargs):
+        """
+        Accept arbitrary dictionary to support either Slack or HipChat
+        Call an "assign" method below to set the above properties
+        for use in the actual Trebek bot
+        """
+        for dictionary in slack_json:
+            for key in dictionary.keys():
+                setattr(self, key, dictionary[key])
+
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+
+    def assign_from_slack(self):
+        """ Example Json passed to Class:
+        token=gIkuvaNzQIHg97ATvDxqgjtO
+        team_id=T0001
+        team_domain=example
+        channel_id=C2147483705
+        channel_name=test
+        user_id=U2147483697
+        user_name=Steve
+        command=/weather
+        text=94070
+        response_url=https://hooks.slack.com/commands/1234/5678
+        """
+        self.room_id = self.channel_id
+        self.message = self.text
 

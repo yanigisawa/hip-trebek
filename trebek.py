@@ -69,6 +69,7 @@ class Trebek:
     board_limit = int(os.environ.get(_board_limit))
     answer_match_ratio = float(os.environ.get(_answer_match_ratio))
     seconds_to_expire = int(os.environ.get(_secods_to_expire))
+    slack_format = True
 
     @property
     def user_score_prefix(self):
@@ -79,7 +80,7 @@ class Trebek:
         self.redis = redis.StrictRedis(host = uri.hostname, 
                 port = uri.port, password = uri.password)
         self.room_message = room_message
-        self.room_id = self.room_message.item.room.room_id
+        self.room_id = self.room_message.room_id
 
     def get_year_month(self):
         now = datetime.now()
@@ -95,9 +96,8 @@ class Trebek:
         return obj
 
     def get_response_message(self):
-        cmd = self.room_message.item.message.message
+        cmd = self.room_message.message
         self.save_hipchat_user()
-        print("cmd - {0}".format(cmd))
         if re.match('^jeopardy*', cmd):
             response = self.get_question()
         elif re.match('^lifetime score$', cmd):
@@ -136,7 +136,7 @@ class Trebek:
     def get_user_score(self, lifetime = False):
         pattern = "*{0}:{1}".format(
                 self.user_score_prefix_base if lifetime else self.user_score_prefix, 
-                self.room_message.item.message.user_from.id)
+                self.room_message.user_id)
         score = 0
         for score_key in self.redis.scan_iter(match = pattern):
             score += int(self.redis.get(score_key).decode())
@@ -144,9 +144,9 @@ class Trebek:
         return self.format_currency(score)
 
     def save_hipchat_user(self):
-        key = self.hipchat_user_key.format(self.room_message.item.message.user_from.id)
+        key = self.hipchat_user_key.format(self.room_message.user_id)
         if not self.redis.exists(key):
-            self.redis.set(key, self.room_message.item.message.user_from.name)
+            self.redis.set(key, self.room_message.user_name)
 
     def get_question(self):
         message = ""
@@ -156,10 +156,17 @@ class Trebek:
             if self.redis.exists(key):
                 active_clue = self.get_active_clue()
                 message = "The answer was: <b>{0}</b><br/>".format(active_clue.answer)
+                if self.slack_format:
+                    message = "The answer was: *{0}*   ".format(active_clue.answer)
             clue = self.get_jeopardy_clue()
-            message += "The category is <b>{0}</b> for {1}: <b>{2}</b> (Air Date: {3:%d-%b-%Y)}".format(
-                    clue.category.title.upper(), self.format_currency(clue.value), clue.question.upper(),
-                    clue.airdate)
+            if self.slack_format:
+                message += "The category is *{0}* for {1}: *{2}* (Air Date: {3:%d-%b-%Y)}".format(
+                        clue.category.title.upper(), self.format_currency(clue.value), clue.question.upper(),
+                        clue.airdate)
+            else: # hipchat
+                message += "The category is <b>{0}</b> for {1}: <b>{2}</b> (Air Date: {3:%d-%b-%Y)}".format(
+                        clue.category.title.upper(), self.format_currency(clue.value), clue.question.upper(),
+                        clue.airdate)
             
             pipe = self.redis.pipeline()
             pipe.set(key, json.dumps(clue, cls=entities.QuestionEncoder))
@@ -193,34 +200,36 @@ class Trebek:
             return None
 
         response = ""
-        user_answer = self.room_message.item.message.message
+        user_answer = self.room_message.message
         correct_answer = self.is_correct_answer(clue.answer, user_answer)
         user_answer_key = self.user_answer_key.format(self.room_id,
-                clue.id, self.room_message.item.message.user_from.id)
+                clue.id, self.room_message.user_id)
 
-        hipchat_user_name = self.room_message.item.message.user_from.name
+        user_name = self.room_message.user_name
         if self.redis.exists(user_answer_key):
-            response = "You have already answered {0}. Let someone else respond.".format(hipchat_user_name)
+            response = "You have already answered {0}. Let someone else respond.".format(user_name)
         elif clue.expiration < time.time():
             if correct_answer:
-                response = "That is correct {0}, however time is up. (Expected Answer: {1})".format(hipchat_user_name, clue.answer)
+                response = "That is correct {0}, however time is up. (Expected Answer: {1})".format(user_name, clue.answer)
             else:
                 response = "Time is up! The correct answer was: <b>{0}</b>".format(clue.answer)
+                if self.slack_format:
+                    response = "Time is up! The correct answer was: *{0}*".format(clue.answer)
             self.mark_question_as_answered()
         elif self.response_is_a_question(user_answer) and correct_answer:
             score = self.update_score(clue.value)
             response = "That is correct, {0}. Your score is now {1} (Expected Answer: {2})".format(
-                    hipchat_user_name, self.format_currency(score), clue.answer)
+                    user_name, self.format_currency(score), clue.answer)
             self.mark_question_as_answered()
         elif correct_answer:
             score = self.update_score(-clue.value)
-            response = "That is correct {0}, however responses should be in the form of a question.".format(hipchat_user_name)
+            response = "That is correct {0}, however responses should be in the form of a question.".format(user_name)
             response += " Your score is now {0}".format(self.format_currency(score))
             clue.expiration = time.time() + self.seconds_to_expire
             self.redis.setex(user_answer_key, self.seconds_to_expire, 'true')
         else:
             score = self.update_score(-clue.value)
-            response = "That is incorrect, {0}. Your score is now {1}".format(hipchat_user_name, self.format_currency(score))
+            response = "That is incorrect, {0}. Your score is now {1}".format(user_name, self.format_currency(score))
             clue.expiration = time.time() + self.seconds_to_expire
             self.redis.setex(user_answer_key, self.seconds_to_expire, 'true')
 
@@ -234,7 +243,7 @@ class Trebek:
         pipe.execute()
 
     def update_score(self, score = 0):
-        key = "{0}:{1}".format(self.user_score_prefix, self.room_message.item.message.user_from.id)
+        key = "{0}:{1}".format(self.user_score_prefix, self.room_message.user_id)
         old_score = 0
         if self.redis.exists(key):
             old_score = int(self.redis.get(key))
@@ -335,6 +344,8 @@ class Trebek:
             year, month = [int(x) for x in self.get_year_month().split('-')]
             dt = datetime(year, month, 1)
             loserboard = "<p>Loserboard for {0} {1}:</p>".format(dt.strftime("%B"), year)
+            if self.slack_format:
+                loserboard = "Loserboard for {0} {1}:\n\n".format(dt.strftime("%B"), year)
         loserboard += self.get_formatted_board(sorted_losers)
         return loserboard
 
@@ -345,6 +356,9 @@ class Trebek:
             year, month = [int(x) for x in self.get_year_month().split('-')]
             dt = datetime(year, month, 1)
             leaderboard = "<p>Leaderboard for {0} {1}:</p>".format(dt.strftime("%B"), year)
+            if self.slack_format:
+                leaderboard = "Leaderboard for {0} {1}:\n\n".format(dt.strftime("%B"), year)
+
         leaderboard += self.get_formatted_board(sorted_leaders)
         return leaderboard
 
@@ -353,11 +367,17 @@ class Trebek:
             return "No results for current month"
 
         board = "<ol>"
+        if self.slack_format:
+            board = ""
         for i, user in enumerate(sorted_board):
-            board += '<li>{0}: {1}</li>'.format(self.get_user_name(user[0]), self.format_currency(user[1]))
+            if self.slack_format:
+                board += '{2}. {0}: {1}\n'.format(self.get_user_name(user[0]), self.format_currency(user[1]), i + 1)
+            else: # HipChat
+                board += '<li>{0}: {1}</li>'.format(self.get_user_name(user[0]), self.format_currency(user[1]))
             if i + 1 >= self.board_limit: break
 
-        board += "</ol>"
+        if not self.slack_format:
+            board += "</ol>"
 
         return board
             
@@ -366,8 +386,9 @@ class Trebek:
         score = int(string_value)
         score_string = ""
         if score < 0:
-            score_string = "<span style='color: red;'>-${0}</span>".format(
-                    format(abs(score), ','))
+            score_string = "<span style='color: red;'>-${0}</span>".format(format(abs(score), ','))
+            if self.slack_format:
+                score_string = "_-${0}_".format(format(abs(score), ','))
         else:
             score_string = "${0}".format(format(score, ','))
         return score_string # prefix + format(abs(int(string_value)), ',')
@@ -422,10 +443,10 @@ class Trebek:
         ]
 
         import random
-        return random.sample(quotes, 1)[0].format(self.room_message.item.message.user_from.name)
+        return random.sample(quotes, 1)[0].format(self.room_message.user_name)
 
     def get_help(self):
-        return """<ul>
+        help_msg = """<ul>
 <li>/trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.</li>
 <li>/trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!</li>
 <li>/trebek score: shows your score for the current month.</li>
@@ -439,6 +460,21 @@ class Trebek:
 <li>/trebek help: shows this help information.</li>
 </ul>
 """
+        if self.slack_format:
+            help_msg = """
+• /trebek jeopardy: starts a round of Jeopardy! trebekbot will pick a category and score for you.\n
+• /trebek what/who is/are [answer]: sends an answer. Remember, responses must be in the form of a question!\n
+• /trebek score: shows your score for the current month.\n
+• /trebek lifetime score: shows your all-time score.\n
+• /trebek leaderboard: shows the current month's top scores.\n
+• /trebek loserboard: shows the current month's bottom scores.\n
+• /trebek lifetime leaderboard: shows the all-time top scores.\n
+• /trebek lifetime loserboard: shows the all-time bottom scores.\n
+• /trebek answer: shows the answer to the previous round.\n
+• /trebek invalid: submits the active question as invalid to the underlying jservice. See http://jservice.io for more information\n
+• /trebek help: shows this help information.\n
+"""
+        return help_msg
 
 @route ("/", method='POST')
 def index():
@@ -450,16 +486,28 @@ def index():
     # if auth_header == None or auth_header != os.environ.get(_auth_header):
     #     response.status = 401
     #     return "Not Authorized"
-
-    msg = entities.HipChatRoomMessage(**request.json)
+    slack = False
+    msg = None
+    if 'token' in request.json.keys():
+        slack = True
+        msg = entities.TrebekMessage(request.json)
+        msg.assign_from_slack()
+    else:
+        msg = entities.HipChatRoomMessage(**request.json)
     trebek = Trebek(msg)
     response_message = trebek.get_response_message()
+    response.content_type = "application/json"
     if response_message != None:
         parameters = {}
-        parameters['from'] = 'trebek'
-        parameters['room_id'] = msg.item.room.room_id 
-        parameters['message'] = response_message
-        parameters['color'] = 'gray'
+        if slack:
+            parameters['text'] = response_message
+            parameters['response_type'] = "in_channel"
+            pass
+        else:
+            parameters['from'] = 'trebek'
+            parameters['room_id'] = msg.room_id 
+            parameters['message'] = response_message
+            parameters['color'] = 'gray'
 
         return json.dumps(parameters)
 
