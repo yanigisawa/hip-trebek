@@ -496,6 +496,7 @@ def index():
         in the form POST data. 
         """
         d = request.POST
+        print(d.keys())
         d = json.loads(list(d.keys())[0])
 
     if 'token' in d.keys():
