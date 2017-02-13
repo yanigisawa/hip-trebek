@@ -53,10 +53,10 @@ def notify_answer(room_id, clue_id, url):
         if obj.id == clue_id:
             r.delete(key)
             parameters = {}
+            headers = {}
             if slack:
                 parameters['text'] = "The answer was: {0}".format(obj.answer)
                 parameters['response_type'] = "in_channel"
-                headers = {}
                 headers['Content-type'] = 'application/json'
             else:
                 parameters['message'] = "The answer was: {0}".format(obj.answer)
