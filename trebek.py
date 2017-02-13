@@ -488,12 +488,22 @@ def index():
     #     return "Not Authorized"
     slack = False
     msg = None
-    if 'token' in request.json.keys():
+    d = request.json
+    if not d:
+        """
+        Slack was found to not add the Content-Type application/json
+        header to the POST Request. So the json comes through as a key
+        in the form POST data. 
+        """
+        d = request.POST
+        d = json.loads(list(d.keys())[0])
+
+    if 'token' in d.keys():
         slack = True
-        msg = entities.TrebekMessage(request.json)
+        msg = entities.TrebekMessage(d)
         msg.assign_from_slack()
     else:
-        msg = entities.HipChatRoomMessage(**request.json)
+        msg = entities.HipChatRoomMessage(**d)
     trebek = Trebek(msg)
     response_message = trebek.get_response_message()
     response.content_type = "application/json"
