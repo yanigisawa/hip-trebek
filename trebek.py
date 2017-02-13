@@ -171,7 +171,7 @@ class Trebek:
                 active_clue = self.get_active_clue()
                 message = "The answer was: <b>{0}</b><br/>".format(active_clue.answer)
                 if self.slack_format:
-                    message = "The answer was: *{0}*   ".format(active_clue.answer)
+                    message = "The answer was: *{0}*\n".format(active_clue.answer)
             clue = self.get_jeopardy_clue()
             if self.slack_format:
                 message += "The category is *{0}* for {1}: *{2}* (Air Date: {3:%d-%b-%Y)}".format(
