@@ -67,6 +67,7 @@ def notify_answer(room_id, clue_id, url):
             resp = requests.post(url, data = parameters, headers = headers, timeout=5)
             if resp.status_code != 200:
                 print('failed to post message to hipchat')
+                resp.raise_for_status()
     else:
         print('no redis key exists, do not notify')
 
