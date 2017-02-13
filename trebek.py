@@ -36,7 +36,6 @@ def notify_answer(room_id, clue_id, url):
     global _timer
     _timer.cancel()
     slack = True
-    print("Timer URL: {0}".format(url))
     if not url: # assume HipChat
         url = "https://api.hipchat.com/v1/rooms/message?auth_token={1}".format(
                 room_id, os.environ.get(_hipchat_auth_token))
@@ -66,7 +65,7 @@ def notify_answer(room_id, clue_id, url):
 
             resp = requests.post(url, data = json.dumps(parameters), headers = headers, timeout=5)
             if resp.status_code != 200:
-                print('failed to post message to hipchat')
+                print('failed to post message')
                 resp.raise_for_status()
     else:
         print('no redis key exists, do not notify')
@@ -189,7 +188,6 @@ class Trebek:
             pipe.execute()
             if not os.environ.get(_unit_test):
                 global _timer
-                print("Trebek URL: {0}".format(self.slack_url))
                 _timer = Timer(self.seconds_to_expire + 5, notify_answer, args = [self.room_id, clue.id, self.slack_url])
                 _timer.start()
              
@@ -289,7 +287,6 @@ class Trebek:
     def fetch_random_clue(self):
         url = "http://jservice.io/api/random?count=1"
         req = requests.get(url)
-        # print(req.json())
         print("ANSWER: {0}".format(req.json()[0]['answer']))
         return entities.Question(**req.json()[0])
 
@@ -494,14 +491,6 @@ class Trebek:
 
 @route ("/", method='POST')
 def index():
-    # print("REQUEST: {0}".format(request.json))
-    # if _auth_header.lower() not in request.query:
-    #     response.status = 401
-    #     return "auth_header query parameter required"
-    # auth_header = request.query[_auth_header.lower()]
-    # if auth_header == None or auth_header != os.environ.get(_auth_header):
-    #     response.status = 401
-    #     return "Not Authorized"
     slack = False
     msg = None
     d = request.json
@@ -513,6 +502,9 @@ def index():
         d = request.POST
 
     if 'token' in d.keys():
+        if d['token'] != os.environ.get(_auth_header):
+            return "Not Authorized"
+
         slack = True
         msg = entities.TrebekMessage(d)
         msg.assign_from_slack()
