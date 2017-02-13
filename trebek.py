@@ -491,13 +491,9 @@ def index():
     d = request.json
     if not d:
         """
-        Slack was found to not add the Content-Type application/json
-        header to the POST Request. So the json comes through as a key
-        in the form POST data. 
+        Slack sends the fields as POST data, not json
         """
         d = request.POST
-        print(d.keys())
-        d = json.loads(list(d.keys())[0])
 
     if 'token' in d.keys():
         slack = True
