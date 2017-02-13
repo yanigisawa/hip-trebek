@@ -57,14 +57,14 @@ def notify_answer(room_id, clue_id, url):
             if slack:
                 parameters['text'] = "The answer was: {0}".format(obj.answer)
                 parameters['response_type'] = "in_channel"
-                headers['Content-type'] = 'application/json'
+                # headers['Content-type'] = 'application/json'
             else:
                 parameters['message'] = "The answer was: {0}".format(obj.answer)
                 parameters['room_id'] = room_id
                 parameters['color'] = 'gray'
                 parameters['from'] = 'Trebek'
 
-            resp = requests.post(url, data = parameters, headers = headers, timeout=5)
+            resp = requests.post(url, data = parameters, timeout=5)
             if resp.status_code != 200:
                 print('failed to post message to hipchat')
                 resp.raise_for_status()
