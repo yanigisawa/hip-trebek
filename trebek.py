@@ -32,11 +32,14 @@ _hipchat_auth_token = "HIPCHAT_AUTH_TOKEN"
 _timer = None
 _unit_test = "UNIT_TEST"
 
-def notify_answer(room_id, clue_id):
+def notify_answer(room_id, clue_id, url):
     global _timer
     _timer.cancel()
-    url = "https://api.hipchat.com/v1/rooms/message?auth_token={1}".format(
-            room_id, os.environ.get(_hipchat_auth_token))
+    slack = True
+    if not url: # assume HipChat
+        url = "https://api.hipchat.com/v1/rooms/message?auth_token={1}".format(
+                room_id, os.environ.get(_hipchat_auth_token))
+        slack = False
 
     key = Trebek.clue_key.format(room_id)
 
@@ -49,10 +52,15 @@ def notify_answer(room_id, clue_id):
         if obj.id == clue_id:
             r.delete(key)
             parameters = {}
-            parameters['message'] = "The answer was: {0}".format(obj.answer)
-            parameters['room_id'] = room_id
-            parameters['color'] = 'gray'
-            parameters['from'] = 'Trebek'
+            if slack:
+                parameters['text'] = "The answer was: {0}".format(obj.answer)
+                parameters['response_type'] = "in_channel"
+            else:
+                parameters['message'] = "The answer was: {0}".format(obj.answer)
+                parameters['room_id'] = room_id
+                parameters['color'] = 'gray'
+                parameters['from'] = 'Trebek'
+
             resp = requests.post(url, data = parameters, timeout=5)
             if resp.status_code != 200:
                 print('failed to post message to hipchat')
@@ -174,7 +182,7 @@ class Trebek:
             pipe.execute()
             if not os.environ.get(_unit_test):
                 global _timer
-                _timer = Timer(self.seconds_to_expire + 5, notify_answer, args = [self.room_id, clue.id])
+                _timer = Timer(self.seconds_to_expire + 5, notify_answer, args = [self.room_id, clue.id, self.slack_url])
                 _timer.start()
              
         return message
@@ -489,6 +497,7 @@ def index():
     slack = False
     msg = None
     d = request.json
+    url = None
     if not d:
         """
         Slack sends the fields as POST data, not json
@@ -499,9 +508,12 @@ def index():
         slack = True
         msg = entities.TrebekMessage(d)
         msg.assign_from_slack()
+        url = d['response_url']
     else:
         msg = entities.HipChatRoomMessage(**d)
     trebek = Trebek(msg)
+    if url:
+        trebek.slack_url = url
     response_message = trebek.get_response_message()
     response.content_type = "application/json"
     if response_message != None:
