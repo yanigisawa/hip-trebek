@@ -36,6 +36,7 @@ def notify_answer(room_id, clue_id, url):
     global _timer
     _timer.cancel()
     slack = True
+    print("Timer URL: {0}".format(url))
     if not url: # assume HipChat
         url = "https://api.hipchat.com/v1/rooms/message?auth_token={1}".format(
                 room_id, os.environ.get(_hipchat_auth_token))
@@ -106,8 +107,10 @@ class Trebek:
     def get_response_message(self):
         cmd = self.room_message.message
         self.save_hipchat_user()
+        response_type = None
         if re.match('^jeopardy*', cmd):
             response = self.get_question()
+            response_type = "in_channel"
         elif re.match('^lifetime score$', cmd):
             response = self.get_user_score(lifetime = True)
         elif re.match('^score$', cmd):
@@ -128,8 +131,9 @@ class Trebek:
             response = self.post_clue_invalid()
         else:
             response = self.process_answer()
+            response_type = "in_channel"
 
-        return response
+        return (response, response_type)
 
     def post_clue_invalid(self):
         clue = self.get_active_clue()
@@ -182,6 +186,7 @@ class Trebek:
             pipe.execute()
             if not os.environ.get(_unit_test):
                 global _timer
+                print("Trebek URL: {0}".format(self.slack_url))
                 _timer = Timer(self.seconds_to_expire + 5, notify_answer, args = [self.room_id, clue.id, self.slack_url])
                 _timer.start()
              
@@ -509,19 +514,21 @@ def index():
         msg = entities.TrebekMessage(d)
         msg.assign_from_slack()
         url = d['response_url']
+        print("POST URL: {0}".format(url))
     else:
         msg = entities.HipChatRoomMessage(**d)
     trebek = Trebek(msg)
     if url:
         trebek.slack_url = url
-    response_message = trebek.get_response_message()
+        print("Assign url to Trebek {0}".format(trebek.slack_url))
+    response_message, response_type = trebek.get_response_message()
     response.content_type = "application/json"
     if response_message != None:
         parameters = {}
         if slack:
             parameters['text'] = response_message
-            parameters['response_type'] = "in_channel"
-            pass
+            if response_type:
+                parameters['response_type'] = response_type
         else:
             parameters['from'] = 'trebek'
             parameters['room_id'] = msg.room_id 
